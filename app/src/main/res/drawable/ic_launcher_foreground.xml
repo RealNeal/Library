@@ -1,0 +1,131 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Head: Red ring with white center, black outline, peeking from behind books -->
+    <!-- Draw head first so books can overlap it -->
+    
+    <!-- Red ring (outer circle) -->
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M58,38 C58,32 62,28 68,28 C74,28 78,32 78,38 C78,44 74,48 68,48 C62,48 58,44 58,38" />
+    <!-- White center (inner circle) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M62,38 C62,35 64.5,32.5 68,32.5 C71.5,32.5 74,35 74,38 C74,41 71.5,43.5 68,43.5 C64.5,43.5 62,41 62,38" />
+    <!-- Black outline of head ring -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeWidth="2.5"
+        android:strokeColor="#000000"
+        android:pathData="M58,38 C58,32 62,28 68,28 C74,28 78,32 78,38 C78,44 74,48 68,48 C62,48 58,44 58,38" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeWidth="2.5"
+        android:strokeColor="#000000"
+        android:pathData="M62,38 C62,35 64.5,32.5 68,32.5 C71.5,32.5 74,35 74,38 C74,41 71.5,43.5 68,43.5 C64.5,43.5 62,41 62,38" />
+    
+    <!-- Left ear (triangular) with black outline -->
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M60,28 L62,18 L64,28 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeWidth="2.5"
+        android:strokeColor="#000000"
+        android:pathData="M60,28 L62,18 L64,28 Z" />
+    
+    <!-- Right ear (triangular) with black outline -->
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M72,28 L74,18 L76,28 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeWidth="2.5"
+        android:strokeColor="#000000"
+        android:pathData="M72,28 L74,18 L76,28 Z" />
+    
+    <!-- Four books: three standing vertically, fourth leaning diagonally -->
+    <!-- Books are drawn after head so they overlap the bottom part -->
+    
+    <!-- Book 1 (left) - Red, standing -->
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M20,30 L20,78 L28,78 L28,30 Z" />
+    <!-- Top edge -->
+    <path
+        android:fillColor="#C62828"
+        android:pathData="M20,30 L28,30 L28,33 L20,33 Z" />
+    <!-- Bottom edge -->
+    <path
+        android:fillColor="#C62828"
+        android:pathData="M20,78 L28,78 L28,75 L20,75 Z" />
+    <!-- Gold stripes on spine -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M22,38 L26,38 L26,40 L22,40 Z" />
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M22,68 L26,68 L26,70 L22,70 Z" />
+    
+    <!-- Book 2 (middle left) - Blue, standing -->
+    <path
+        android:fillColor="#2196F3"
+        android:pathData="M32,30 L32,78 L40,78 L40,30 Z" />
+    <!-- Top edge -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M32,30 L40,30 L40,33 L32,33 Z" />
+    <!-- Bottom edge -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M32,78 L40,78 L40,75 L32,75 Z" />
+    <!-- Gold stripes on spine -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M34,38 L38,38 L38,40 L34,40 Z" />
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M34,68 L38,68 L38,70 L34,70 Z" />
+    
+    <!-- Book 3 (middle right) - Orange, standing -->
+    <!-- This book overlaps the bottom part of the head -->
+    <path
+        android:fillColor="#FF9800"
+        android:pathData="M44,30 L44,78 L52,78 L52,30 Z" />
+    <!-- Top edge -->
+    <path
+        android:fillColor="#F57C00"
+        android:pathData="M44,30 L52,30 L52,33 L44,33 Z" />
+    <!-- Bottom edge -->
+    <path
+        android:fillColor="#F57C00"
+        android:pathData="M44,78 L52,78 L52,75 L44,75 Z" />
+    <!-- Gold stripes on spine -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M46,38 L50,38 L50,40 L46,40 Z" />
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M46,68 L50,68 L50,70 L46,70 Z" />
+    
+    <!-- Book 4 (diagonal) - Green, leaning against orange book -->
+    <!-- This book also overlaps the bottom part of the head -->
+    <!-- Main body of diagonal book -->
+    <path
+        android:fillColor="#4CAF50"
+        android:pathData="M20,30 L20,78 L28,70 L28,22 Z" />
+    <!-- Top edge of diagonal book -->
+    <path
+        android:fillColor="#388E3C"
+        android:pathData="M20,30 L28,22 L32,26 L24,34 Z" />
+    <!-- Gold stripes on diagonal book spine -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M22,36 L24,35 L24,37 L22,38 Z" />
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M22,66 L24,65 L24,67 L22,68 Z" />
+</vector>
