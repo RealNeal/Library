@@ -264,11 +264,10 @@ fun LibraryScreen(
 
     var searchQuery by remember { mutableStateOf<String>("") }
     var statusFilter by remember { mutableStateOf<WorkStatus?>(null) }
-    var showAddWorkScreen by remember { mutableStateOf<Boolean>(false) }
+    var workEditor by remember { mutableStateOf<WorkEditorOverlay>(WorkEditorOverlay.Hidden) }
     var works by remember { mutableStateOf<List<Work>>(emptyList()) }
     var sessionCoverByWorkId by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var selectedWork by remember { mutableStateOf<Work?>(null) }
-    var editingWork by remember { mutableStateOf<Work?>(null) }
     var workToDelete by remember { mutableStateOf<Work?>(null) }
     var expandedCoverWork by remember { mutableStateOf<Work?>(null) }
     var pendingWorkSave by remember { mutableStateOf<PendingWorkSave?>(null) }
@@ -320,15 +319,14 @@ fun LibraryScreen(
     // Общий back: закрываем экран добавления или просмотра произведения.
     // Не должен срабатывать, пока открыт detail-search (detailSearchExpanded = true) или увеличенная обложка,
     // чтобы системная кнопка «Назад» сперва закрывала поиск или обложку.
-    BackHandler(enabled = showAddWorkScreen || (selectedWork != null && !detailSearchExpanded && expandedCoverWork == null)) {
+    BackHandler(enabled = workEditor.isVisible || (selectedWork != null && !detailSearchExpanded && expandedCoverWork == null)) {
         when {
-            showAddWorkScreen -> {
-                // Если редактировали существующее произведение, возвращаемся к экрану просмотра
-                if (editingWork != null) {
-                    selectedWork = editingWork
-                    editingWork = null
+            workEditor.isVisible -> {
+                val editor = workEditor
+                if (editor is WorkEditorOverlay.Edit && editor.returnToDetailOnDismiss) {
+                    selectedWork = editor.work
                 }
-                showAddWorkScreen = false
+                workEditor = WorkEditorOverlay.Hidden
             }
             selectedWork != null -> selectedWork = null
         }
@@ -603,9 +601,9 @@ fun LibraryScreen(
                     if (selectedWork != null) {
                         IconButton(
                             onClick = {
-                                editingWork = selectedWork
+                                val work = selectedWork ?: return@IconButton
                                 selectedWork = null
-                                showAddWorkScreen = true
+                                workEditor = WorkEditorOverlay.Edit(work, returnToDetailOnDismiss = true)
                             }
                         ) {
                             Icon(
@@ -627,7 +625,7 @@ fun LibraryScreen(
                         }
                     } else {
                         IconButton(
-                            onClick = { showAddWorkScreen = true }
+                            onClick = { workEditor = WorkEditorOverlay.Create }
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
@@ -755,7 +753,7 @@ fun LibraryScreen(
                     )
                 }
 
-                if (!showAddWorkScreen) {
+                if (!workEditor.isVisible) {
                 when (selectedItem) {
                     NavigationItem.Profile -> {
                         ProfileScreen(
@@ -835,8 +833,7 @@ fun LibraryScreen(
                                 works = repository.getAllWorks()
                             },
                             onAddWorkRequested = {
-                                editingWork = null
-                                showAddWorkScreen = true
+                                workEditor = WorkEditorOverlay.Create
                             },
                             profileReselectSignal = profileReselectSignal,
                             onScrollStateChange = { shouldHide -> isHeaderVisible = !shouldHide },
@@ -851,7 +848,7 @@ fun LibraryScreen(
                                     state = gridState,
                                     columns = GridCells.Fixed(2),
                                     modifier = Modifier.fillMaxSize(),
-                                    userScrollEnabled = !showAddWorkScreen,
+                                    userScrollEnabled = !workEditor.isVisible,
                                     // Чуть уменьшаем внешние отступы и расстояние между карточками,
                                     // чтобы обложки в блочном режиме казались шире, а ряды ближе друг к другу.
                                     contentPadding = PaddingValues(
@@ -878,7 +875,7 @@ fun LibraryScreen(
                                 LazyColumn(
                                     state = listState,
                                     modifier = Modifier.fillMaxSize(),
-                                    userScrollEnabled = !showAddWorkScreen,
+                                    userScrollEnabled = !workEditor.isVisible,
                                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
@@ -979,9 +976,8 @@ fun LibraryScreen(
                                 },
                                 onBack = { selectedWork = null },
                                 onEdit = {
-                                    editingWork = work
                                     selectedWork = null
-                                    showAddWorkScreen = true
+                                    workEditor = WorkEditorOverlay.Edit(work, returnToDetailOnDismiss = true)
                                 },
                                 onDelete = { workToDelete = work },
                                 onSave = { updatedWork ->
@@ -1027,8 +1023,7 @@ fun LibraryScreen(
                         detailSearchQuery = ""
                         expandedCoverWork = null
                         // Также закрываем форму добавления/редактирования
-                        showAddWorkScreen = false
-                        editingWork = null
+                        workEditor = WorkEditorOverlay.Hidden
                     }
                 },
                 currentTheme = currentTheme,
@@ -1041,9 +1036,9 @@ fun LibraryScreen(
             )
         }
 
-        // Add/Edit Work Screen — отдельный слой; контент вкладок под ним не рисуется (см. showAddWorkScreen выше)
+        // Add/Edit Work Screen — отдельный слой; контент вкладок под ним не рисуется (см. workEditor выше)
         androidx.compose.animation.AnimatedVisibility(
-            visible = showAddWorkScreen,
+            visible = workEditor.isVisible,
             enter = fadeIn(animationSpec = tween(140, easing = FastOutSlowInEasing)) + slideInVertically(
                 initialOffsetY = { it / 3 },
                 animationSpec = tween(180, easing = FastOutSlowInEasing)
@@ -1063,25 +1058,21 @@ fun LibraryScreen(
             ) {
                 AddWorkScreen(
                     onBack = {
-                        // Кнопка "Назад" в форме добавления/редактирования
-                        if (editingWork != null) {
-                            // При редактировании возвращаемся в просмотр произведения
-                            selectedWork = editingWork
+                        val editor = workEditor
+                        if (editor is WorkEditorOverlay.Edit && editor.returnToDetailOnDismiss) {
+                            selectedWork = editor.work
                         }
-                        showAddWorkScreen = false
-                        editingWork = null
+                        workEditor = WorkEditorOverlay.Hidden
                     },
                     onSave = { work ->
-                        requestSaveWork(work, editingWork) { saved ->
-                            showAddWorkScreen = false
-                            // После сохранения:
-                            // - если это было редактирование — остаёмся в экране просмотра обновлённого произведения
-                            // - если это новое произведение — остаёмся на вкладке со списком
-                            selectedWork = if (editingWork != null) saved else selectedWork
-                            editingWork = null
+                        val previous = workEditor.editingWorkOrNull
+                        val returnToDetail = (workEditor as? WorkEditorOverlay.Edit)?.returnToDetailOnDismiss == true
+                        requestSaveWork(work, previous) { saved ->
+                            workEditor = WorkEditorOverlay.Hidden
+                            selectedWork = if (returnToDetail) saved else selectedWork
                         }
                     },
-                    work = editingWork // Pass work for editing
+                    work = workEditor.editingWorkOrNull,
                 )
             }
         }

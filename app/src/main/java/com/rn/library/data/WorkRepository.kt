@@ -70,12 +70,7 @@ class WorkRepository(private val context: Context) {
      * Уже сохранённые абсолютные пути не трогает.
      */
     fun persistWorkCovers(work: Work): Work {
-        val orderedPaths = buildList {
-            work.coverPath?.takeIf { it.isNotBlank() }?.let { add(it) }
-            work.coverPaths.filter { it.isNotBlank() }.forEach { path ->
-                if (path !in this) add(path)
-            }
-        }
+        val orderedPaths = work.allCoverPaths()
         if (orderedPaths.isEmpty()) return work
 
         val persistedPaths = orderedPaths.mapIndexed { index, path ->
@@ -86,9 +81,8 @@ class WorkRepository(private val context: Context) {
             ?.let { orderedPaths.indexOf(it).takeIf { idx -> idx >= 0 } }
             ?: 0
         val primary = persistedPaths.getOrElse(primaryIndex) { persistedPaths.first() }
-        val others = persistedPaths.filterIndexed { index, _ -> index != primaryIndex }
 
-        val updated = work.copy(coverPath = primary, coverPaths = others)
+        val updated = work.copy(coverPath = primary, coverPaths = persistedPaths)
         return if (updated.coverPath == work.coverPath && updated.coverPaths == work.coverPaths) work else updated
     }
 

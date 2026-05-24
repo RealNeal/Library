@@ -1527,8 +1527,10 @@ private fun EditUnitProgressFieldRow(
     var completedText by remember(safeIndex) {
         mutableStateOf(formatEditableUnitNumber(currentUnit.completed, emptyAsZero = true))
     }
+    var completedFieldFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(safeIndex, currentUnit.completed) {
+        if (completedFieldFocused) return@LaunchedEffect
         val parsed = completedText.trim().toDoubleOrNull() ?: 0.0
         if (parsed != currentUnit.completed) {
             completedText = formatEditableUnitNumber(currentUnit.completed, emptyAsZero = true)
@@ -1716,7 +1718,9 @@ private fun EditUnitProgressFieldRow(
                     )
                 },
                 label = { Text(progressLabel, fontSize = 13.5.sp) },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { completedFieldFocused = it.isFocused },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = fieldColors,

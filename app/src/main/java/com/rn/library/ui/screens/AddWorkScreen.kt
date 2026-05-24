@@ -10,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,8 +22,13 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
@@ -113,7 +119,7 @@ fun AddWorkScreen(
     var description by remember(work?.description) { mutableStateOf(work?.description ?: "") }
     var type by remember(work?.type) { mutableStateOf(work?.type ?: WorkType.BOOK) }
     var status by remember(work?.status) { mutableStateOf(work?.status ?: WorkStatus.IN_PLANS) }
-    
+
     // Поля для томов/сезонов и глав/серий
     var volumes by remember(work?.volumes) { mutableStateOf(formatNumberForDisplay(work?.volumes)) }
     var seasons by remember(work?.seasons) { mutableStateOf(work?.seasons?.toString() ?: "") }
@@ -127,20 +133,17 @@ fun AddWorkScreen(
     var unitProgressList by remember(work?.unitProgress) {
         mutableStateOf(work?.unitProgress ?: emptyList())
     }
-    
-    // Обложки (до 10): поддерживаем старое поле coverPath и новый список coverPaths
-    var coverPaths by remember(work?.coverPath, work?.coverPaths) {
-        mutableStateOf(
-            buildList {
-                work?.coverPath?.takeIf { it.isNotBlank() }?.let { add(it) }
-                work?.coverPaths?.filter { it.isNotBlank() }?.forEach { add(it) }
-            }.distinct().take(10)
-        )
+
+    // Обложки (до 10) в порядке добавления; selectedCoverIndex — главная для списка библиотеки
+    var coverPaths by remember(work?.id, work?.coverPath, work?.coverPaths) {
+        mutableStateOf(work?.allCoverPaths()?.take(10) ?: emptyList())
     }
-    var selectedCoverIndex by remember(work?.coverPath, work?.coverPaths) {
-        mutableStateOf(0)
+    var selectedCoverIndex by remember(work?.id, work?.coverPath, work?.coverPaths) {
+        val paths = work?.allCoverPaths().orEmpty()
+        val primaryIndex = work?.coverPath?.let { paths.indexOf(it) }?.takeIf { it >= 0 } ?: 0
+        mutableStateOf(primaryIndex)
     }
-    
+
     // Дополнительные поля
     var country by remember(work?.country) { mutableStateOf(work?.country ?: "") }
     var animeSeason by remember(work?.animeSeason) { mutableStateOf(work?.animeSeason ?: AnimeSeason.SPRING) }
@@ -149,9 +152,9 @@ fun AddWorkScreen(
     var year by remember(work?.year, work?.yearPeriod) {
         mutableStateOf(work?.yearPeriod ?: work?.year?.toString().orEmpty())
     }
-    
+
     // Инициализация дат в формате ДД.ММ.ГГГГ для отображения
-    var dateRead by remember(work?.dateRead) { 
+    var dateRead by remember(work?.dateRead) {
         mutableStateOf(
             work?.dateRead?.let { date ->
                 val parts = date.split("-")
@@ -172,14 +175,14 @@ fun AddWorkScreen(
     var link1 by remember(work?.link) { mutableStateOf(work?.link ?: "") }
     var link2 by remember(work?.link2) { mutableStateOf(work?.link2 ?: "") }
     var note by remember(work?.note) { mutableStateOf(work?.note ?: "") }
-    
+
     // Состояния для выпадающих списков
     var typeDropdownExpanded by remember { mutableStateOf(false) }
     var statusDropdownExpanded by remember { mutableStateOf(false) }
     var seasonDropdownExpanded by remember { mutableStateOf(false) }
     var mangaTypeDropdownExpanded by remember { mutableStateOf(false) }
     var seriesTypeDropdownExpanded by remember { mutableStateOf(false) }
-    
+
     fun closeNow() {
         typeDropdownExpanded = false
         statusDropdownExpanded = false
@@ -188,10 +191,10 @@ fun AddWorkScreen(
         seriesTypeDropdownExpanded = false
         onBack()
     }
-    
+
     // Обработка системной кнопки "Назад"
     BackHandler { closeNow() }
-    
+
     // Launcher для выбора обложки
     val coverPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -204,15 +207,14 @@ fun AddWorkScreen(
                 selectedCoverIndex = existingIndex
             } else if (coverPaths.size < 10) {
                 coverPaths = coverPaths + persisted
-                selectedCoverIndex = coverPaths.lastIndex
             }
         }
     }
-    
+
     // Валидация года: YYYY или период YYYY - YYYY
     val singleYearPattern = Pattern.compile("^\\d{0,4}$")
     val yearPeriodPattern = Pattern.compile("^\\d{4}\\s?-\\s?\\d{0,4}$")
-    
+
     // Визуальное преобразование для форматирования даты ДД.ММ.ГГГГ
     val dateVisualTransformation = VisualTransformation { text ->
         val digits = text.text.replace("[^0-9]".toRegex(), "")
@@ -232,7 +234,7 @@ fun AddWorkScreen(
                     if (offset > 4) transformedOffset++
                     return transformedOffset.coerceAtMost(formatted.length)
                 }
-                
+
                 override fun transformedToOriginal(offset: Int): Int {
                     var originalOffset = offset
                     if (offset > 2) originalOffset--
@@ -242,7 +244,7 @@ fun AddWorkScreen(
             }
         )
     }
-    
+
     // Форматирование даты для сохранения (только цифры)
     fun formatDateForSave(input: String): String {
         val digits = input.replace("[^0-9]".toRegex(), "")
@@ -254,7 +256,7 @@ fun AddWorkScreen(
         }
         return ""
     }
-    
+
     // Форматирование альтернативных названий для сохранения (преобразование переносов в точки с запятой)
     fun formatAlternativeTitlesForSave(input: String): String {
         return input.split('\n')
@@ -262,7 +264,7 @@ fun AddWorkScreen(
             .filter { it.isNotEmpty() }
             .joinToString("; ")
     }
-    
+
     // Получаем правильные опции статуса в зависимости от типа
     fun getStatusOptions(): List<Pair<WorkStatus, String>> {
         return when (type) {
@@ -280,14 +282,12 @@ fun AddWorkScreen(
             )
         }
     }
-    
+
     // Проверяем, нужно ли показывать дату прочтения
     val showDateRead = status in listOf(WorkStatus.READ, WorkStatus.WATCHED, WorkStatus.ABANDONED)
 
-    var altTitlesFieldFocused by remember { mutableStateOf(false) }
-    var descriptionFieldFocused by remember { mutableStateOf(false) }
-    val blockFormScrollWhileFieldFocused = altTitlesFieldFocused || descriptionFieldFocused
     val formScrollState = rememberScrollState()
+
 
     Column(
         modifier = modifier
@@ -313,18 +313,16 @@ fun AddWorkScreen(
                     style = MaterialTheme.typography.titleLarge
                 )
             }
-            
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .verticalScroll(
-                        state = formScrollState,
-                        enabled = !blockFormScrollWhileFieldFocused,
-                    )
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(state = formScrollState) // Скролл формы
+                .padding(horizontal = 16.dp)
+                .imePadding(), // <--- ДОБАВЬ ЭТУ СТРОКУ
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
                 // Название
                 OutlinedTextField(
                     value = title,
@@ -338,33 +336,26 @@ fun AddWorkScreen(
                         unfocusedContainerColor = fieldBg
                     )
                 )
-                
-                // Альтернативные названия: фиксированная высота + изоляция скролла от формы
+
                 ScrollIsolatedMultilineField(
                     value = alternativeTitles,
                     onValueChange = { alternativeTitles = it },
-                    onFocusChanged = { altTitlesFieldFocused = it },
                     label = { Text(strings.alternativeTitles) },
                     placeholder = { Text(strings.otherTitlesPlaceholder) },
-                    minHeight = 56.dp,
-                    maxHeight = 192.dp,
-                    maxLines = Int.MAX_VALUE,
+                    minLines = 1,
+                    maxLines = 3,
                     colors = fieldColors,
-                    parentScrollState = formScrollState
                 )
 
                 ScrollIsolatedMultilineField(
                     value = description,
                     onValueChange = { description = it },
-                    onFocusChanged = { altTitlesFieldFocused = it },
                     label = { Text(strings.description) },
-                    minHeight = 56.dp,
-                    maxHeight = 288.dp,
-                    maxLines = Int.MAX_VALUE,
+                    minLines = 5,
+                    maxLines = 11,
                     colors = fieldColors,
-                    parentScrollState = formScrollState
                 )
-                
+
                 // Тип произведения
                 CustomDropdown(
                     label = strings.type,
@@ -394,7 +385,7 @@ fun AddWorkScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
-                
+
                 // Подтип для манги/сериала
                 AnimatedVisibility(
                     visible = type == WorkType.MANGA,
@@ -457,7 +448,7 @@ fun AddWorkScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
-                
+
                 // Тома/Сезоны
                 val volumesLabel = when (type) {
                     WorkType.BOOK, WorkType.MANGA -> strings.volumes
@@ -465,11 +456,12 @@ fun AddWorkScreen(
                     WorkType.ANIME -> "" // Для аниме тома не используются
                 }
                 val volumesValue = when (type) {
-                    WorkType.BOOK, WorkType.MANGA -> volumes
+                    WorkType.BOOK -> chapters
+                    WorkType.MANGA -> volumes
                     WorkType.SERIES -> seasons
                     WorkType.ANIME -> ""
                 }
-                
+
                 AnimatedVisibility(
                     visible = volumesLabel.isNotEmpty(),
                     enter = expandVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) +
@@ -481,7 +473,8 @@ fun AddWorkScreen(
                         value = volumesValue,
                         onValueChange = { newValue ->
                             when (type) {
-                                WorkType.BOOK, WorkType.MANGA -> volumes = newValue
+                                WorkType.BOOK -> chapters = newValue
+                                WorkType.MANGA -> volumes = newValue
                                 WorkType.SERIES -> seasons = newValue
                                 WorkType.ANIME -> {}
                             }
@@ -496,7 +489,7 @@ fun AddWorkScreen(
                         )
                     )
                 }
-                
+
                 // Главы/Серии
                 val chaptersLabel = when (type) {
                     WorkType.BOOK -> strings.chapters
@@ -508,7 +501,7 @@ fun AddWorkScreen(
                     WorkType.MANGA -> chapters
                     WorkType.ANIME, WorkType.SERIES -> episodes
                 }
-                
+
                 OutlinedTextField(
                     value = chaptersValue,
                     onValueChange = { newValue ->
@@ -527,9 +520,10 @@ fun AddWorkScreen(
                         unfocusedContainerColor = fieldBg
                     )
                 )
-                
+
                 val unitCountHint = when (type) {
-                    WorkType.BOOK, WorkType.MANGA -> volumes.toDoubleOrNull()?.toInt()
+                    WorkType.BOOK -> chapters.toDoubleOrNull()?.toInt()
+                    WorkType.MANGA -> volumes.toDoubleOrNull()?.toInt()
                     WorkType.SERIES -> seasons.toIntOrNull()
                     WorkType.ANIME -> seasons.toIntOrNull()
                 }
@@ -573,7 +567,7 @@ fun AddWorkScreen(
                         unfocusedContainerColor = fieldBg
                     )
                 )
-                
+
                 // Обложка
                 Column {
                     Text(
@@ -649,7 +643,7 @@ fun AddWorkScreen(
                         }
                     }
                 }
-                
+
                 // Страна
                 OutlinedTextField(
                     value = country,
@@ -662,7 +656,7 @@ fun AddWorkScreen(
                         unfocusedContainerColor = fieldBg
                     )
                 )
-                
+
                 // Время года (только для аниме)
                 AnimatedVisibility(
                     visible = type == WorkType.ANIME,
@@ -695,7 +689,7 @@ fun AddWorkScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
-                
+
                 // Год
                 OutlinedTextField(
                     value = year,
@@ -719,7 +713,7 @@ fun AddWorkScreen(
                         unfocusedContainerColor = fieldBg
                     )
                 )
-                
+
                 // Статус
                 CustomDropdown(
                     label = strings.status,
@@ -740,7 +734,7 @@ fun AddWorkScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
-                
+
                 // Дата прочтения (если статус прочитано/просмотрено/заброшено)
                 AnimatedVisibility(
                     visible = showDateRead,
@@ -773,7 +767,7 @@ fun AddWorkScreen(
                         )
                     )
                 }
-                
+
                 // Дата перепрочтения/пересмотра
                 OutlinedTextField(
                     value = rereadDate,
@@ -798,7 +792,7 @@ fun AddWorkScreen(
                         unfocusedContainerColor = fieldBg
                     )
                 )
-                
+
                 // Ссылки
                 OutlinedTextField(
                     value = link1,
@@ -811,7 +805,7 @@ fun AddWorkScreen(
                         unfocusedContainerColor = fieldBg
                     )
                 )
-                
+
                 OutlinedTextField(
                     value = link2,
                     onValueChange = { link2 = it },
@@ -823,7 +817,7 @@ fun AddWorkScreen(
                         unfocusedContainerColor = fieldBg
                     )
                 )
-                
+
                 // Заметка
                 OutlinedTextField(
                     value = note,
@@ -857,10 +851,13 @@ fun AddWorkScreen(
                             status = status,
                             otherTitle = formatAlternativeTitlesForSave(alternativeTitles).ifEmpty { null },
                             coverPath = coverPaths.getOrNull(selectedCoverIndex),
-                            coverPaths = coverPaths.filterIndexed { index, _ -> index != selectedCoverIndex },
-                            volumes = volumes.toDoubleOrNull(),
+                            coverPaths = coverPaths,
+                            volumes = if (type == WorkType.MANGA) volumes.toDoubleOrNull() else null,
                             seasons = seasons.toIntOrNull(),
-                            chapters = chapters.toDoubleOrNull(),
+                            chapters = when (type) {
+                                WorkType.BOOK, WorkType.MANGA -> chapters.toDoubleOrNull()
+                                else -> null
+                            },
                             bookChapters = bookChapters.toDoubleOrNull(),
                             episodes = episodes.toDoubleOrNull(),
                             progress = when {
