@@ -159,7 +159,7 @@ fun WorkDetailScreen(
     var statusMenuExpanded by remember { mutableStateOf(false) }
     var seriesTypeMenuExpanded by remember { mutableStateOf(false) }
     var mangaTypeMenuExpanded by remember { mutableStateOf(false) }
-    
+
     // Pending changes to apply asynchronously
     var pendingStatusChange by remember { mutableStateOf<WorkStatus?>(null) }
     var pendingSeriesTypeChange by remember { mutableStateOf<SeriesType?>(null) }
@@ -174,7 +174,7 @@ fun WorkDetailScreen(
     LaunchedEffect(work) {
         temporaryWork = work
     }
-    
+
     // Handle pending status changes asynchronously
     LaunchedEffect(pendingStatusChange) {
         pendingStatusChange?.let { newStatus ->
@@ -185,7 +185,7 @@ fun WorkDetailScreen(
             pendingStatusChange = null
         }
     }
-    
+
     // Handle pending series type changes asynchronously
     LaunchedEffect(pendingSeriesTypeChange) {
         pendingSeriesTypeChange?.let { newSeriesType ->
@@ -196,7 +196,7 @@ fun WorkDetailScreen(
             pendingSeriesTypeChange = null
         }
     }
-    
+
     // Handle pending manga type changes asynchronously
     LaunchedEffect(pendingMangaTypeChange) {
         pendingMangaTypeChange?.let { newMangaType ->
@@ -336,7 +336,7 @@ fun WorkDetailScreen(
             )
         )
 
-        
+
         items.add(
             EditInfoItem(
                 key = "dateRead",
@@ -1527,8 +1527,10 @@ private fun EditUnitProgressFieldRow(
     var completedText by remember(safeIndex) {
         mutableStateOf(formatEditableUnitNumber(currentUnit.completed, emptyAsZero = true))
     }
+    var completedFieldFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(safeIndex, currentUnit.completed) {
+        if (completedFieldFocused) return@LaunchedEffect
         val parsed = completedText.trim().toDoubleOrNull() ?: 0.0
         if (parsed != currentUnit.completed) {
             completedText = formatEditableUnitNumber(currentUnit.completed, emptyAsZero = true)
@@ -1716,7 +1718,9 @@ private fun EditUnitProgressFieldRow(
                     )
                 },
                 label = { Text(progressLabel, fontSize = 13.5.sp) },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { completedFieldFocused = it.isFocused },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = fieldColors,

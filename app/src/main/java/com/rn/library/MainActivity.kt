@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(AppSettings.getCustomStatsArgb(this))
             }
             val view = LocalView.current
-            
+
             MyLibraryTheme(
                 darkTheme = currentTheme == AppTheme.DARK,
                 dynamicColor = dynamicColorsEnabled,
@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
                     }
                     onDispose { }
                 }
-                
+
                 LibraryScreen(
                     modifier = Modifier.fillMaxSize(),
                     currentTheme = currentTheme,

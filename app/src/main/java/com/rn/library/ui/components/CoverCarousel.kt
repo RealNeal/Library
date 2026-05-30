@@ -34,6 +34,17 @@ import com.rn.library.data.toCoverImageData
 import java.io.File
 import kotlinx.coroutines.flow.distinctUntilChanged
 
+private fun modIndex(value: Int, size: Int): Int {
+    val m = value % size
+    return if (m < 0) m + size else m
+}
+
+private fun centerPageForCoverIndex(index: Int, coverCount: Int): Int {
+    val half = Int.MAX_VALUE / 2
+    return half - modIndex(half, coverCount) + index
+}
+private fun pageToCoverIndex(page: Int, coverCount: Int): Int = modIndex(page, coverCount)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CoverCarousel(
@@ -93,26 +104,32 @@ fun CoverCarousel(
             return
         }
 
-        val initialPage = coverPaths.indexOf(currentPath).let { if (it >= 0) it else 0 }
+        val coverCount = coverPaths.size
+        val initialCoverIndex = coverPaths.indexOf(currentPath).let { if (it >= 0) it else 0 }
         val pagerState = rememberPagerState(
-            initialPage = initialPage,
-            pageCount = { coverPaths.size }
+            initialPage = centerPageForCoverIndex(initialCoverIndex, coverCount),
+            pageCount = { Int.MAX_VALUE },
         )
 
-        LaunchedEffect(pagerState, coverPaths) {
+        LaunchedEffect(pagerState, coverCount) {
             snapshotFlow { pagerState.currentPage }
                 .distinctUntilChanged()
                 .collect { page ->
-                    onCurrentPathChange(coverPaths[page])
+                    onCurrentPathChange(coverPaths[pageToCoverIndex(page, coverCount)])
                 }
         }
 
         LaunchedEffect(currentPath, coverPaths) {
             val target = coverPaths.indexOf(currentPath)
-            if (target >= 0 && target != pagerState.currentPage) {
-                pagerState.animateScrollToPage(target)
-            }
+            if (target < 0) return@LaunchedEffect
+            val currentIndex = pageToCoverIndex(pagerState.currentPage, coverCount)
+            if (target == currentIndex) return@LaunchedEffect
+            val forward = modIndex(target - currentIndex, coverCount)
+            val backward = modIndex(currentIndex - target, coverCount)
+            val delta = if (forward <= backward) forward else -backward
+            pagerState.animateScrollToPage(pagerState.currentPage + delta)
         }
+        val displayIndex = pageToCoverIndex(pagerState.currentPage, coverCount)
 
         Card(
             modifier = Modifier.fillMaxSize(),
@@ -127,7 +144,7 @@ fun CoverCarousel(
             ) { page ->
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(coverPaths[page].toCoverImageData())
+                        .data(coverPaths[pageToCoverIndex(page, coverCount)].toCoverImageData())
                         .build(),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
@@ -145,10 +162,10 @@ fun CoverCarousel(
             coverPaths.forEachIndexed { index, _ ->
                 Box(
                     modifier = Modifier
-                        .size(if (index == pagerState.currentPage) 8.dp else 6.dp)
+                        .size(if (index == displayIndex) 8.dp else 6.dp)
                         .clip(CircleShape)
                         .background(
-                            if (index == pagerState.currentPage) Color.White
+                            if (index == displayIndex) Color.White
                             else Color.White.copy(alpha = 0.45f)
                         )
                 )

@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
@@ -92,6 +93,7 @@ fun UnitProgressEditor(
                     },
                     fieldBg = fieldBg,
                     labelColor = labelColor,
+                    workType = workType,
                     strings = strings
                 )
             }
@@ -118,8 +120,13 @@ private fun UnitProgressRow(
     onRemove: () -> Unit,
     fieldBg: Color,
     labelColor: Color,
+    workType: WorkType,
     strings: Strings
 ) {
+    val completedLabel = when (workType) {
+        WorkType.SERIES -> strings.watched
+        else -> strings.unitCompleted
+    }
     val colors = TextFieldDefaults.colors(
         focusedContainerColor = fieldBg,
         unfocusedContainerColor = fieldBg
@@ -136,7 +143,8 @@ private fun UnitProgressRow(
                 value = unit.unitName,
                 onValueChange = { onChange(unit.copy(unitName = it)) },
                 label = { Text(strings.unitName) },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f),
                 singleLine = true,
                 colors = colors
             )
@@ -153,7 +161,7 @@ private fun UnitProgressRow(
                 numericValue = unit.completed,
                 onNumericChange = { onChange(unit.copy(completed = it ?: 0.0)) },
                 emptyAsZero = true,
-                label = strings.unitCompleted,
+                label = completedLabel,
                 modifier = Modifier.weight(1f),
                 colors = colors,
             )
@@ -183,8 +191,10 @@ private fun UnitProgressDecimalField(
     var text by remember(fieldKey) {
         mutableStateOf(formatEditableUnitNumber(numericValue, emptyAsZero))
     }
+    var isFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(numericValue) {
+        if (isFocused) return@LaunchedEffect
         val parsed = text.trim().toDoubleOrNull()
         val matches = when {
             text.isBlank() -> numericValue == null || (emptyAsZero && numericValue == 0.0)
@@ -203,7 +213,8 @@ private fun UnitProgressDecimalField(
             onNumericChange(parseUnitDecimalInput(filtered, emptyAsZero))
         },
         label = { Text(label) },
-        modifier = modifier,
+        modifier = modifier
+            .onFocusChanged { isFocused = it.isFocused },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         colors = colors,

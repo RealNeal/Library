@@ -97,7 +97,7 @@ fun Work.toWorkItem(
         else many
         return "$count $form"
     }
-    
+
     fun formatDouble(value: Double): String {
         // Remove trailing zeros and decimal point if not needed
         return if (value % 1.0 == 0.0) {
@@ -106,7 +106,7 @@ fun Work.toWorkItem(
             value.toString().trimEnd('0').trimEnd('.')
         }
     }
-    
+
     fun formatDoubleWithPlural(value: Double, one: String, few: String, many: String): String {
         val formatted = formatDouble(value)
         // For pluralization, use the integer part
@@ -295,7 +295,7 @@ fun LibraryScreen(
     // Search inside details-mode (icon-only search bar)
     var detailSearchExpanded by remember { mutableStateOf(false) }
     var detailSearchQuery by remember { mutableStateOf("") }
-    
+
     // Как и для грида: новое состояние при смене вкладки/фильтра/сортировки/поиска/режима —
     // список начинается с первого элемента (прокрутка не «залипает» на старой позиции после сортировки).
     val listState = remember(statusFilter, selectedItem, isGridView, sortOrder, searchQuery) {
@@ -326,14 +326,13 @@ fun LibraryScreen(
                 // Если редактировали существующее произведение, возвращаемся к экрану просмотра
                 if (editingWork != null) {
                     selectedWork = editingWork
-                    editingWork = null
                 }
                 showAddWorkScreen = false
             }
             selectedWork != null -> selectedWork = null
         }
     }
-    
+
     // Подгружаем каталог при старте и при каждой смене вкладки (после импорта с Профиля список не «залипает»).
     LaunchedEffect(selectedItem) {
         works = repository.getAllWorks()
@@ -370,7 +369,7 @@ fun LibraryScreen(
             isHeaderVisible = true
         }
     }
-    
+
     // Filter works by selected tab
     val filteredWorks = remember(works, selectedItem, searchQuery, statusFilter, sortOrder) {
         val typeFilter = when (selectedItem) {
@@ -380,18 +379,18 @@ fun LibraryScreen(
             NavigationItem.TVSeries -> WorkType.SERIES
             else -> null
         }
-        
+
         var filtered = if (typeFilter != null) {
             works.filter { it.type == typeFilter }
         } else {
             emptyList()
         }
-        
+
         // Apply search filter
         if (searchQuery.isNotBlank()) {
-            filtered = filtered.filter { 
+            filtered = filtered.filter {
                 it.title.contains(searchQuery, ignoreCase = true) ||
-                it.otherTitle?.contains(searchQuery, ignoreCase = true) == true
+                        it.otherTitle?.contains(searchQuery, ignoreCase = true) == true
             }
         }
 
@@ -399,7 +398,7 @@ fun LibraryScreen(
         statusFilter?.let { sf ->
             filtered = filtered.filter { it.status == sf }
         }
-        
+
         when (sortOrder) {
             SortOrder.TITLE_ASC -> filtered.sortedBy { it.title.lowercase() }
             SortOrder.TITLE_DESC -> filtered.sortedByDescending { it.title.lowercase() }
@@ -463,7 +462,7 @@ fun LibraryScreen(
     // Colors used across header + detail-search list
     val iconTextColor = IconTextColor()
     val titleColorBetween = TitleColorBetween()
-    
+
     CompositionLocalProvider(LocalStrings provides strings) {
         val bottomBarHeight = 130.dp
         Box(modifier = modifier.fillMaxSize()) {
@@ -509,7 +508,7 @@ fun LibraryScreen(
                     }
                 }
             }
-            
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -530,561 +529,561 @@ fun LibraryScreen(
                         }
                     )
             ) {
-            // Spacer to push search bar from top
-            Spacer(modifier = Modifier.height(40.dp))
+                // Spacer to push search bar from top
+                Spacer(modifier = Modifier.height(40.dp))
 
-            // Search bar with theme toggle and add/edit button - сворачивается при прокрутке
-            // Управление видимостью через isHeaderVisible, который обновляется:
-            // - Для списков произведений: через LaunchedEffect с listState
-            // - Для Profile: через onScrollStateChange из ProfileScreen
-            // - Для WorkDetail: через onScrollStateChange из WorkDetailScreen
-            androidx.compose.animation.AnimatedVisibility(
-                visible = isHeaderVisible,
-                enter = androidx.compose.animation.fadeIn(animationSpec = tween(90)) +
-                        androidx.compose.animation.slideInVertically(animationSpec = tween(280)),
-                exit = androidx.compose.animation.fadeOut(animationSpec = tween(90)) +
-                        androidx.compose.animation.slideOutVertically(animationSpec = tween(110)) { -it }
-            ) {
-                Column(
+                // Search bar with theme toggle and add/edit button - сворачивается при прокрутке
+                // Управление видимостью через isHeaderVisible, который обновляется:
+                // - Для списков произведений: через LaunchedEffect с listState
+                // - Для Profile: через onScrollStateChange из ProfileScreen
+                // - Для WorkDetail: через onScrollStateChange из WorkDetailScreen
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = isHeaderVisible,
+                    enter = androidx.compose.animation.fadeIn(animationSpec = tween(90)) +
+                            androidx.compose.animation.slideInVertically(animationSpec = tween(280)),
+                    exit = androidx.compose.animation.fadeOut(animationSpec = tween(90)) +
+                            androidx.compose.animation.slideOutVertically(animationSpec = tween(110)) { -it }
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 30.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val iconTextColor = IconTextColor()
+                            val titleColorBetween = TitleColorBetween()
+
+                            // Back button (only when viewing work details)
+                            if (selectedWork != null) {
+                                IconButton(onClick = { selectedWork = null }) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = strings.cancel,
+                                        tint = titleColorBetween
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                            }
+
+                            // Search bar (icon-only when viewing work details, full when not)
+                            SearchBar(
+                                modifier = Modifier.weight(1f),
+                                currentTheme = currentTheme,
+                                iconOnly = selectedWork != null,
+                                // ВАЖНО: в списковом режиме всегда прокидываем внешний state,
+                                // иначе при сворачивании/разворачивании хедера (AnimatedVisibility)
+                                // SearchBar пересоздаётся и внутренний internalQuery сбрасывается.
+                                query = if (selectedWork != null) detailSearchQuery else searchQuery,
+                                onSearchQueryChange = { q ->
+                                    if (selectedWork != null) detailSearchQuery = q else searchQuery = q
+                                },
+                                expanded = if (selectedWork != null) detailSearchExpanded else null,
+                                onExpandedChange = { detailSearchExpanded = it }
+                            )
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            // Hide other icons when detail-search expanded (search should take full width)
+                            if (!(selectedWork != null && detailSearchExpanded)) {
+                                SunIcon(
+                                    onClick = {
+                                        onThemeChange(if (currentTheme == AppTheme.DARK) AppTheme.LIGHT else AppTheme.DARK)
+                                    },
+                                    color = iconTextColor,
+                                    iconSize = 20.dp
+                                )
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                if (selectedWork != null) {
+                                    IconButton(
+                                        onClick = {
+                                            editingWork = selectedWork
+                                            selectedWork = null
+                                            showAddWorkScreen = true
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = strings.editWork,
+                                            tint = if (currentTheme == AppTheme.DARK) Color.White else Color.Black
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    IconButton(
+                                        onClick = { workToDelete = selectedWork }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = strings.deleteWork,
+                                            // same color as edit icon
+                                            tint = if (currentTheme == AppTheme.DARK) Color.White else Color.Black
+                                        )
+                                    }
+                                } else {
+                                    IconButton(
+                                        onClick = {
+                                            editingWork = null // <-- ДОБАВИТЬ
+                                            showAddWorkScreen = true
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = strings.addWork,
+                                            tint = if (currentTheme == AppTheme.DARK) iconTextColor.copy(alpha = 0.9f) else Color.Black
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Status filter chips (under search bar)
+                        if (selectedWork == null && selectedItem != NavigationItem.Profile) {
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            val statusItems = when (selectedItem) {
+                                NavigationItem.Anime, NavigationItem.TVSeries -> listOf(
+                                    WorkStatus.IN_PLANS to strings.inPlans,
+                                    WorkStatus.WATCHING to strings.watching,
+                                    WorkStatus.WATCHED to strings.watched,
+                                    WorkStatus.ABANDONED to strings.abandoned
+                                )
+                                NavigationItem.Books, NavigationItem.Manga -> listOf(
+                                    WorkStatus.IN_PLANS to strings.inPlans,
+                                    WorkStatus.READING to strings.reading,
+                                    WorkStatus.READ to strings.read,
+                                    WorkStatus.ABANDONED to strings.abandoned
+                                )
+                                else -> emptyList()
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                statusItems.forEach { (st, label) ->
+                                    val isSelected = statusFilter == st
+                                    val stColor = when (st) {
+                                        WorkStatus.IN_PLANS -> Color(0xFF8E6687)
+                                        WorkStatus.ABANDONED -> Color(0xFFFF5F5A)
+                                        WorkStatus.READING, WorkStatus.WATCHING -> Color(0xFF7179A4)
+                                        WorkStatus.READ, WorkStatus.WATCHED -> Color(0xFF79C77C)
+                                    }
+
+                                    AssistChip(
+                                        onClick = {
+                                            statusFilter = if (isSelected) null else st
+                                        },
+                                        label = {
+                                            Text(
+                                                text = label,
+                                                color = stColor,
+                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                            )
+                                        },
+                                        colors = AssistChipDefaults.assistChipColors(
+                                            containerColor = Color.Transparent,
+                                            labelColor = stColor,
+                                            disabledContainerColor = Color.Transparent,
+                                            disabledLabelColor = stColor
+                                        ),
+                                        border = AssistChipDefaults.assistChipBorder(
+                                            borderColor = stColor,
+                                            borderWidth = 2.dp,
+                                            enabled = true
+                                        )
+                                    )
+                                }
+
+                                // Чип сортировки сразу после статуса «Заброшено»
+                                SortOrderChip(
+                                    sortOrder = sortOrder,
+                                    onSortOrderChange = { newOrder ->
+                                        sortOrder = newOrder
+                                        prefs.edit { putString("sort_order", newOrder.name) }
+                                    },
+                                    iconTextColor = iconTextColor
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Main content area
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 30.dp)
+                        .weight(1f)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                val iconTextColor = IconTextColor()
-                val titleColorBetween = TitleColorBetween()
-                
-                // Back button (only when viewing work details)
-                if (selectedWork != null) {
-                    IconButton(onClick = { selectedWork = null }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = strings.cancel,
-                            tint = titleColorBetween
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                }
-                
-                // Search bar (icon-only when viewing work details, full when not)
-                SearchBar(
-                    modifier = Modifier.weight(1f),
-                    currentTheme = currentTheme,
-                    iconOnly = selectedWork != null,
-                    // ВАЖНО: в списковом режиме всегда прокидываем внешний state,
-                    // иначе при сворачивании/разворачивании хедера (AnimatedVisibility)
-                    // SearchBar пересоздаётся и внутренний internalQuery сбрасывается.
-                    query = if (selectedWork != null) detailSearchQuery else searchQuery,
-                    onSearchQueryChange = { q ->
-                        if (selectedWork != null) detailSearchQuery = q else searchQuery = q
-                    },
-                    expanded = if (selectedWork != null) detailSearchExpanded else null,
-                    onExpandedChange = { detailSearchExpanded = it }
-                )
-                
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Hide other icons when detail-search expanded (search should take full width)
-                if (!(selectedWork != null && detailSearchExpanded)) {
-                    SunIcon(
-                        onClick = {
-                            onThemeChange(if (currentTheme == AppTheme.DARK) AppTheme.LIGHT else AppTheme.DARK)
-                        },
-                        color = iconTextColor,
-                        iconSize = 20.dp
-                    )
-                    
-                    Spacer(modifier = Modifier.width(12.dp))
-                    
-                    if (selectedWork != null) {
-                        IconButton(
-                            onClick = {
-                                editingWork = selectedWork
-                                selectedWork = null
-                                showAddWorkScreen = true
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = strings.editWork,
-                                tint = if (currentTheme == AppTheme.DARK) Color.White else Color.Black
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        IconButton(
-                            onClick = { workToDelete = selectedWork }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = strings.deleteWork,
-                                // same color as edit icon
-                                tint = if (currentTheme == AppTheme.DARK) Color.White else Color.Black
-                            )
-                        }
-                    } else {
-                        IconButton(
-                            onClick = { showAddWorkScreen = true }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = strings.addWork,
-                                tint = if (currentTheme == AppTheme.DARK) iconTextColor.copy(alpha = 0.9f) else Color.Black
-                            )
-                        }
-                    }
-                }
-                    }
-
-                    // Status filter chips (under search bar)
-                    if (selectedWork == null && selectedItem != NavigationItem.Profile) {
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        val statusItems = when (selectedItem) {
-                            NavigationItem.Anime, NavigationItem.TVSeries -> listOf(
-                                WorkStatus.IN_PLANS to strings.inPlans,
-                                WorkStatus.WATCHING to strings.watching,
-                                WorkStatus.WATCHED to strings.watched,
-                                WorkStatus.ABANDONED to strings.abandoned
-                            )
-                            NavigationItem.Books, NavigationItem.Manga -> listOf(
-                                WorkStatus.IN_PLANS to strings.inPlans,
-                                WorkStatus.READING to strings.reading,
-                                WorkStatus.READ to strings.read,
-                                WorkStatus.ABANDONED to strings.abandoned
-                            )
-                            else -> emptyList()
-                        }
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            statusItems.forEach { (st, label) ->
-                                val isSelected = statusFilter == st
-                                val stColor = when (st) {
-                                    WorkStatus.IN_PLANS -> Color(0xFF8E6687)
-                                    WorkStatus.ABANDONED -> Color(0xFFFF5F5A)
-                                    WorkStatus.READING, WorkStatus.WATCHING -> Color(0xFF7179A4)
-                                    WorkStatus.READ, WorkStatus.WATCHED -> Color(0xFF79C77C)
-                                }
-
-                                AssistChip(
+                    // Delete confirmation dialog
+                    workToDelete?.let { w ->
+                        val scheme = androidx.compose.material3.MaterialTheme.colorScheme
+                        AlertDialog(
+                            onDismissRequest = { workToDelete = null },
+                            title = { Text(strings.deleteWork) },
+                            text = { Text(strings.deleteWorkConfirm) },
+                            containerColor = scheme.surface,
+                            titleContentColor = scheme.onSurface,
+                            textContentColor = scheme.onSurfaceVariant,
+                            confirmButton = {
+                                TextButton(
                                     onClick = {
-                                        statusFilter = if (isSelected) null else st
+                                        if (repository.deleteWork(w.id)) {
+                                            works = repository.getAllWorks()
+                                            if (selectedWork?.id == w.id) selectedWork = null
+                                            workToDelete = null
+                                        }
                                     },
-                                    label = {
-                                        Text(
-                                            text = label,
-                                            color = stColor,
-                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                                        )
-                                    },
-                                    colors = AssistChipDefaults.assistChipColors(
-                                        containerColor = Color.Transparent,
-                                        labelColor = stColor,
-                                        disabledContainerColor = Color.Transparent,
-                                        disabledLabelColor = stColor
-                                    ),
-                                    border = AssistChipDefaults.assistChipBorder(
-                                        borderColor = stColor,
-                                        borderWidth = 2.dp,
-                                        enabled = true
+                                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                        containerColor = scheme.primary,
+                                        contentColor = scheme.onPrimary
                                     )
-                                )
+                                ) { Text(strings.delete) }
+                            },
+                            dismissButton = {
+                                TextButton(
+                                    onClick = { workToDelete = null },
+                                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                        contentColor = scheme.primary
+                                    )
+                                ) { Text(strings.cancel) }
                             }
-
-                            // Чип сортировки сразу после статуса «Заброшено»
-                            SortOrderChip(
-                                sortOrder = sortOrder,
-                                onSortOrderChange = { newOrder ->
-                                    sortOrder = newOrder
-                                    prefs.edit { putString("sort_order", newOrder.name) }
-                                },
-                                iconTextColor = iconTextColor
-                            )
-                        }
+                        )
                     }
-                }
-            }
 
-            // Main content area
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-            ) {
-                // Delete confirmation dialog
-                workToDelete?.let { w ->
-                    val scheme = androidx.compose.material3.MaterialTheme.colorScheme
-                    AlertDialog(
-                        onDismissRequest = { workToDelete = null },
-                        title = { Text(strings.deleteWork) },
-                        text = { Text(strings.deleteWorkConfirm) },
-                        containerColor = scheme.surface,
-                        titleContentColor = scheme.onSurface,
-                        textContentColor = scheme.onSurfaceVariant,
-                        confirmButton = {
-                            TextButton(
-                                onClick = {
-                                    if (repository.deleteWork(w.id)) {
+                    if (!showAddWorkScreen) {
+                        when (selectedItem) {
+                            NavigationItem.Profile -> {
+                                ProfileScreen(
+                                    currentLanguage = languageState.currentLanguage,
+                                    onLanguageChange = { languageState.setLanguage(it) },
+                                    currentTheme = currentTheme,
+                                    onThemeChange = onThemeChange,
+                                    dynamicColorsEnabled = dynamicColorsEnabled,
+                                    onDynamicColorsEnabledChange = onDynamicColorsEnabledChange,
+                                    useCustomAccent = useCustomAccent,
+                                    onUseCustomAccentChange = onUseCustomAccentChange,
+                                    customAccentArgb = customAccentArgb,
+                                    onCustomAccentArgbChange = onCustomAccentArgbChange,
+                                    useCustomStatsColor = useCustomStatsColor,
+                                    onUseCustomStatsColorChange = onUseCustomStatsColorChange,
+                                    customStatsArgb = customStatsArgb,
+                                    onCustomStatsArgbChange = onCustomStatsArgbChange,
+                                    booksTabEnabled = booksTabEnabled,
+                                    onBooksTabEnabledChange = { enabled ->
+                                        booksTabEnabled = enabled
+                                        prefs.edit { putBoolean("tab_books_enabled", enabled) }
+                                        if (!enabled && selectedItem == NavigationItem.Books) {
+                                            selectedItem = getDefaultTab(
+                                                booksEnabled = false,
+                                                animeEnabled = animeTabEnabled,
+                                                mangaEnabled = mangaTabEnabled,
+                                                tvEnabled = tvSeriesTabEnabled
+                                            )
+                                        }
+                                    },
+                                    animeTabEnabled = animeTabEnabled,
+                                    onAnimeTabEnabledChange = { enabled ->
+                                        animeTabEnabled = enabled
+                                        prefs.edit { putBoolean("tab_anime_enabled", enabled) }
+                                        if (!enabled && selectedItem == NavigationItem.Anime) {
+                                            selectedItem = getDefaultTab(
+                                                booksEnabled = booksTabEnabled,
+                                                animeEnabled = false,
+                                                mangaEnabled = mangaTabEnabled,
+                                                tvEnabled = tvSeriesTabEnabled
+                                            )
+                                        }
+                                    },
+                                    mangaTabEnabled = mangaTabEnabled,
+                                    onMangaTabEnabledChange = { enabled ->
+                                        mangaTabEnabled = enabled
+                                        prefs.edit { putBoolean("tab_manga_enabled", enabled) }
+                                        if (!enabled && selectedItem == NavigationItem.Manga) {
+                                            selectedItem = getDefaultTab(
+                                                booksEnabled = booksTabEnabled,
+                                                animeEnabled = animeTabEnabled,
+                                                mangaEnabled = false,
+                                                tvEnabled = tvSeriesTabEnabled
+                                            )
+                                        }
+                                    },
+                                    tvSeriesTabEnabled = tvSeriesTabEnabled,
+                                    onTvSeriesTabEnabledChange = { enabled ->
+                                        tvSeriesTabEnabled = enabled
+                                        prefs.edit { putBoolean("tab_tv_enabled", enabled) }
+                                        if (!enabled && selectedItem == NavigationItem.TVSeries) {
+                                            selectedItem = getDefaultTab(
+                                                booksEnabled = booksTabEnabled,
+                                                animeEnabled = animeTabEnabled,
+                                                mangaEnabled = mangaTabEnabled,
+                                                tvEnabled = false
+                                            )
+                                        }
+                                    },
+                                    isGridView = isGridView,
+                                    onGridViewChange = { asGrid ->
+                                        isGridView = asGrid
+                                        prefs.edit { putBoolean("view_grid_mode", asGrid) }
+                                    },
+                                    onWorksUpdated = {
+                                        // Обновляем список произведений при добавлении через ProfileScreen
                                         works = repository.getAllWorks()
-                                        if (selectedWork?.id == w.id) selectedWork = null
-                                        workToDelete = null
-                                    }
-                                },
-                                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
-                                    containerColor = scheme.primary,
-                                    contentColor = scheme.onPrimary
+                                    },
+                                    onAddWorkRequested = {
+                                        editingWork = null
+                                        showAddWorkScreen = true
+                                    },
+                                    profileReselectSignal = profileReselectSignal,
+                                    onScrollStateChange = { shouldHide -> isHeaderVisible = !shouldHide },
+                                    modifier = Modifier.fillMaxSize()
                                 )
-                            ) { Text(strings.delete) }
-                        },
-                        dismissButton = {
-                            TextButton(
-                                onClick = { workToDelete = null },
-                                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
-                                    contentColor = scheme.primary
-                                )
-                            ) { Text(strings.cancel) }
-                        }
-                    )
-                }
-
-                if (!showAddWorkScreen) {
-                when (selectedItem) {
-                    NavigationItem.Profile -> {
-                        ProfileScreen(
-                            currentLanguage = languageState.currentLanguage,
-                            onLanguageChange = { languageState.setLanguage(it) },
-                            currentTheme = currentTheme,
-                            onThemeChange = onThemeChange,
-                            dynamicColorsEnabled = dynamicColorsEnabled,
-                            onDynamicColorsEnabledChange = onDynamicColorsEnabledChange,
-                            useCustomAccent = useCustomAccent,
-                            onUseCustomAccentChange = onUseCustomAccentChange,
-                            customAccentArgb = customAccentArgb,
-                            onCustomAccentArgbChange = onCustomAccentArgbChange,
-                            useCustomStatsColor = useCustomStatsColor,
-                            onUseCustomStatsColorChange = onUseCustomStatsColorChange,
-                            customStatsArgb = customStatsArgb,
-                            onCustomStatsArgbChange = onCustomStatsArgbChange,
-                            booksTabEnabled = booksTabEnabled,
-                            onBooksTabEnabledChange = { enabled ->
-                                booksTabEnabled = enabled
-                                prefs.edit { putBoolean("tab_books_enabled", enabled) }
-                                if (!enabled && selectedItem == NavigationItem.Books) {
-                                    selectedItem = getDefaultTab(
-                                        booksEnabled = false,
-                                        animeEnabled = animeTabEnabled,
-                                        mangaEnabled = mangaTabEnabled,
-                                        tvEnabled = tvSeriesTabEnabled
-                                    )
-                                }
-                            },
-                            animeTabEnabled = animeTabEnabled,
-                            onAnimeTabEnabledChange = { enabled ->
-                                animeTabEnabled = enabled
-                                prefs.edit { putBoolean("tab_anime_enabled", enabled) }
-                                if (!enabled && selectedItem == NavigationItem.Anime) {
-                                    selectedItem = getDefaultTab(
-                                        booksEnabled = booksTabEnabled,
-                                        animeEnabled = false,
-                                        mangaEnabled = mangaTabEnabled,
-                                        tvEnabled = tvSeriesTabEnabled
-                                    )
-                                }
-                            },
-                            mangaTabEnabled = mangaTabEnabled,
-                            onMangaTabEnabledChange = { enabled ->
-                                mangaTabEnabled = enabled
-                                prefs.edit { putBoolean("tab_manga_enabled", enabled) }
-                                if (!enabled && selectedItem == NavigationItem.Manga) {
-                                    selectedItem = getDefaultTab(
-                                        booksEnabled = booksTabEnabled,
-                                        animeEnabled = animeTabEnabled,
-                                        mangaEnabled = false,
-                                        tvEnabled = tvSeriesTabEnabled
-                                    )
-                                }
-                            },
-                            tvSeriesTabEnabled = tvSeriesTabEnabled,
-                            onTvSeriesTabEnabledChange = { enabled ->
-                                tvSeriesTabEnabled = enabled
-                                prefs.edit { putBoolean("tab_tv_enabled", enabled) }
-                                if (!enabled && selectedItem == NavigationItem.TVSeries) {
-                                    selectedItem = getDefaultTab(
-                                        booksEnabled = booksTabEnabled,
-                                        animeEnabled = animeTabEnabled,
-                                        mangaEnabled = mangaTabEnabled,
-                                        tvEnabled = false
-                                    )
-                                }
-                            },
-                            isGridView = isGridView,
-                            onGridViewChange = { asGrid ->
-                                isGridView = asGrid
-                                prefs.edit { putBoolean("view_grid_mode", asGrid) }
-                            },
-                            onWorksUpdated = {
-                                // Обновляем список произведений при добавлении через ProfileScreen
-                                works = repository.getAllWorks()
-                            },
-                            onAddWorkRequested = {
-                                editingWork = null
-                                showAddWorkScreen = true
-                            },
-                            profileReselectSignal = profileReselectSignal,
-                            onScrollStateChange = { shouldHide -> isHeaderVisible = !shouldHide },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    else -> {
-                        // Список показываем только когда детальный экран не открыт
-                        if (selectedWork == null) {
-                            if (isGridView) {
-                                LazyVerticalGrid(
-                                    state = gridState,
-                                    columns = GridCells.Fixed(2),
-                                    modifier = Modifier.fillMaxSize(),
-                                    userScrollEnabled = !showAddWorkScreen,
-                                    // Чуть уменьшаем внешние отступы и расстояние между карточками,
-                                    // чтобы обложки в блочном режиме казались шире, а ряды ближе друг к другу.
-                                    contentPadding = PaddingValues(
-                                        start = 8.dp,
-                                        end = 8.dp,
-                                        top = 2.dp,
-                                        bottom = 8.dp
-                                    ),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4 .dp)
-                                ) {
-                                    items(filteredWorks, key = { it.id }) { work ->
-                                        WorkItemGridCard(
-                                            workItem = work.toWorkItem(
-                                                strings,
-                                                imageUrlOverride = sessionCoverByWorkId[work.id]
-                                            ),
-                                            dynamicColorsEnabled = dynamicColorsEnabled,
-                                            onClick = { selectedWork = work }
-                                        )
-                                    }
-                                }
-                            } else {
-                                LazyColumn(
-                                    state = listState,
-                                    modifier = Modifier.fillMaxSize(),
-                                    userScrollEnabled = !showAddWorkScreen,
-                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    items(filteredWorks, key = { it.id }) { work ->
-                                        WorkItemCard(
-                                            workItem = work.toWorkItem(
-                                                strings,
-                                                imageUrlOverride = sessionCoverByWorkId[work.id]
-                                            ),
-                                            onClick = { selectedWork = work },
-                                        )
-                                    }
-                                }
                             }
-                        }
-                    }
-                }
-
-                // Work Detail Screen (поверх списка, но внутри контентного Box, чтобы фон-обложка был виден)
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = selectedWork != null,
-                    enter = fadeIn(animationSpec = tween(85)) +
-                        slideInVertically(
-                            initialOffsetY = { it / 4 },
-                            animationSpec = tween(85)
-                        ),
-                    exit = fadeOut(animationSpec = tween(55)) +
-                        slideOutVertically(
-                            targetOffsetY = { it / 2 },
-                            animationSpec = tween(55)
-                        )
-                ) {
-                    selectedWork?.let { work ->
-                        if (detailSearchExpanded) {
-                            val filtered = works
-                                .filter {
-                                    if (detailSearchQuery.isBlank()) true
-                                    else it.title.contains(detailSearchQuery, ignoreCase = true) ||
-                                        it.otherTitle?.contains(detailSearchQuery, ignoreCase = true) == true
-                                }
-                                .sortedBy { it.title.lowercase() }
-
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                items(filtered, key = { it.id }) { item ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                selectedWork = item
-                                                detailSearchExpanded = false
-                                                detailSearchQuery = ""
-                                            }
-                                            .padding(vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Image(
-                                            painter = rememberAsyncImagePainter(
-                                                (sessionCoverByWorkId[item.id] ?: item.displayCoverPath())?.toCoverImageData()
+                            else -> {
+                                // Список показываем только когда детальный экран не открыт
+                                if (selectedWork == null) {
+                                    if (isGridView) {
+                                        LazyVerticalGrid(
+                                            state = gridState,
+                                            columns = GridCells.Fixed(2),
+                                            modifier = Modifier.fillMaxSize(),
+                                            userScrollEnabled = !showAddWorkScreen,
+                                            // Чуть уменьшаем внешние отступы и расстояние между карточками,
+                                            // чтобы обложки в блочном режиме казались шире, а ряды ближе друг к другу.
+                                            contentPadding = PaddingValues(
+                                                start = 8.dp,
+                                                end = 8.dp,
+                                                top = 2.dp,
+                                                bottom = 8.dp
                                             ),
-                                            contentDescription = null,
-                                            modifier = Modifier
-                                                .size(54.dp)
-                                                .clip(RoundedCornerShape(8.dp)),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = item.title,
-                                                color = titleColorBetween,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                            Text(
-                                                text = when (item.type) {
-                                                    WorkType.BOOK -> strings.books
-                                                    WorkType.MANGA -> strings.manga
-                                                    WorkType.ANIME -> strings.anime
-                                                    WorkType.SERIES -> strings.tvSeries
-                                                },
-                                                color = iconTextColor.copy(alpha = 0.7f)
-                                            )
+                                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(4 .dp)
+                                        ) {
+                                            items(filteredWorks, key = { it.id }) { work ->
+                                                WorkItemGridCard(
+                                                    workItem = work.toWorkItem(
+                                                        strings,
+                                                        imageUrlOverride = sessionCoverByWorkId[work.id]
+                                                    ),
+                                                    dynamicColorsEnabled = dynamicColorsEnabled,
+                                                    onClick = { selectedWork = work }
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        LazyColumn(
+                                            state = listState,
+                                            modifier = Modifier.fillMaxSize(),
+                                            userScrollEnabled = !showAddWorkScreen,
+                                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            items(filteredWorks, key = { it.id }) { work ->
+                                                WorkItemCard(
+                                                    workItem = work.toWorkItem(
+                                                        strings,
+                                                        imageUrlOverride = sessionCoverByWorkId[work.id]
+                                                    ),
+                                                    onClick = { selectedWork = work },
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
-                        } else {
-                            WorkDetailScreen(
-                                work = work,
-                                coverPaths = work.allCoverPaths(),
-                                sessionCoverPath = sessionCoverByWorkId[work.id],
-                                onSessionCoverPathChange = { path ->
-                                    sessionCoverByWorkId = sessionCoverByWorkId + (work.id to path)
-                                    coverPrefs.edit { putString("last_cover_${work.id}", path) }
-                                },
-                                onBack = { selectedWork = null },
-                                onEdit = {
-                                    editingWork = work
-                                    selectedWork = null
-                                    showAddWorkScreen = true
-                                },
-                                onDelete = { workToDelete = work },
-                                onSave = { updatedWork ->
-                                    requestSaveWork(updatedWork, selectedWork) { saved ->
-                                        selectedWork = saved
-                                        sessionCoverByWorkId[updatedWork.id]?.let { current ->
-                                            if (updatedWork.allCoverPaths().none { it == current }) {
-                                                val next = pickRandomCoverAvoidingLast(
-                                                    updatedWork.allCoverPaths(),
-                                                    coverPrefs.getString("last_cover_${updatedWork.id}", null)
+                        }
+
+                        // Work Detail Screen (поверх списка, но внутри контентного Box, чтобы фон-обложка был виден)
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = selectedWork != null,
+                            enter = fadeIn(animationSpec = tween(85)) +
+                                    slideInVertically(
+                                        initialOffsetY = { it / 4 },
+                                        animationSpec = tween(85)
+                                    ),
+                            exit = fadeOut(animationSpec = tween(55)) +
+                                    slideOutVertically(
+                                        targetOffsetY = { it / 2 },
+                                        animationSpec = tween(55)
+                                    )
+                        ) {
+                            selectedWork?.let { work ->
+                                if (detailSearchExpanded) {
+                                    val filtered = works
+                                        .filter {
+                                            if (detailSearchQuery.isBlank()) true
+                                            else it.title.contains(detailSearchQuery, ignoreCase = true) ||
+                                                    it.otherTitle?.contains(detailSearchQuery, ignoreCase = true) == true
+                                        }
+                                        .sortedBy { it.title.lowercase() }
+
+                                    LazyColumn(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        items(filtered, key = { it.id }) { item ->
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        selectedWork = item
+                                                        detailSearchExpanded = false
+                                                        detailSearchQuery = ""
+                                                    }
+                                                    .padding(vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Image(
+                                                    painter = rememberAsyncImagePainter(
+                                                        (sessionCoverByWorkId[item.id] ?: item.displayCoverPath())?.toCoverImageData()
+                                                    ),
+                                                    contentDescription = null,
+                                                    modifier = Modifier
+                                                        .size(54.dp)
+                                                        .clip(RoundedCornerShape(8.dp)),
+                                                    contentScale = ContentScale.Crop
                                                 )
-                                                if (next != null) {
-                                                    sessionCoverByWorkId = sessionCoverByWorkId + (updatedWork.id to next)
-                                                    coverPrefs.edit { putString("last_cover_${updatedWork.id}", next) }
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = item.title,
+                                                        color = titleColorBetween,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                    Text(
+                                                        text = when (item.type) {
+                                                            WorkType.BOOK -> strings.books
+                                                            WorkType.MANGA -> strings.manga
+                                                            WorkType.ANIME -> strings.anime
+                                                            WorkType.SERIES -> strings.tvSeries
+                                                        },
+                                                        color = iconTextColor.copy(alpha = 0.7f)
+                                                    )
                                                 }
                                             }
                                         }
                                     }
-                                },
-                                onCoverClick = { expandedCoverWork = work },
-                                currentTheme = currentTheme,
-                                onScrollStateChange = null
-                            )
+                                } else {
+                                    WorkDetailScreen(
+                                        work = work,
+                                        coverPaths = work.allCoverPaths(),
+                                        sessionCoverPath = sessionCoverByWorkId[work.id],
+                                        onSessionCoverPathChange = { path ->
+                                            sessionCoverByWorkId = sessionCoverByWorkId + (work.id to path)
+                                            coverPrefs.edit { putString("last_cover_${work.id}", path) }
+                                        },
+                                        onBack = { selectedWork = null },
+                                        onEdit = {
+                                            editingWork = work
+                                            selectedWork = null
+                                            showAddWorkScreen = true
+                                        },
+                                        onDelete = { workToDelete = work },
+                                        onSave = { updatedWork ->
+                                            requestSaveWork(updatedWork, selectedWork) { saved ->
+                                                selectedWork = saved
+                                                sessionCoverByWorkId[updatedWork.id]?.let { current ->
+                                                    if (updatedWork.allCoverPaths().none { it == current }) {
+                                                        val next = pickRandomCoverAvoidingLast(
+                                                            updatedWork.allCoverPaths(),
+                                                            coverPrefs.getString("last_cover_${updatedWork.id}", null)
+                                                        )
+                                                        if (next != null) {
+                                                            sessionCoverByWorkId = sessionCoverByWorkId + (updatedWork.id to next)
+                                                            coverPrefs.edit { putString("last_cover_${updatedWork.id}", next) }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        onCoverClick = { expandedCoverWork = work },
+                                        currentTheme = currentTheme,
+                                        onScrollStateChange = null
+                                    )
+                                }
+                            }
                         }
                     }
-                }
-                }
 
+                }
+                // Bottom navigation bar
+                BottomNavigationBar(
+                    selectedItem = selectedItem,
+                    onItemSelected = { item ->
+                        if (item == NavigationItem.Profile && selectedItem == NavigationItem.Profile) {
+                            profileReselectSignal++
+                        } else {
+                            selectedItem = item
+                            isHeaderVisible = true
+                            statusFilter = null
+                            // При смене вкладки закрываем детальный экран, поиск внутри него и увеличенную обложку
+                            selectedWork = null
+                            detailSearchExpanded = false
+                            detailSearchQuery = ""
+                            expandedCoverWork = null
+                            // Также закрываем форму добавления/редактирования
+                            showAddWorkScreen = false
+                        }
+                    },
+                    currentTheme = currentTheme,
+                    dynamicColorsEnabled = dynamicColorsEnabled,
+                    booksEnabled = booksTabEnabled,
+                    animeEnabled = animeTabEnabled,
+                    mangaEnabled = mangaTabEnabled,
+                    tvSeriesEnabled = tvSeriesTabEnabled,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
-            // Bottom navigation bar
-            BottomNavigationBar(
-                selectedItem = selectedItem,
-                onItemSelected = { item ->
-                    if (item == NavigationItem.Profile && selectedItem == NavigationItem.Profile) {
-                        profileReselectSignal++
-                    } else {
-                        selectedItem = item
-                        isHeaderVisible = true
-                        statusFilter = null
-                        // При смене вкладки закрываем детальный экран, поиск внутри него и увеличенную обложку
-                        selectedWork = null
-                        detailSearchExpanded = false
-                        detailSearchQuery = ""
-                        expandedCoverWork = null
-                        // Также закрываем форму добавления/редактирования
-                        showAddWorkScreen = false
-                        editingWork = null
-                    }
-                },
-                currentTheme = currentTheme,
-                dynamicColorsEnabled = dynamicColorsEnabled,
-                booksEnabled = booksTabEnabled,
-                animeEnabled = animeTabEnabled,
-                mangaEnabled = mangaTabEnabled,
-                tvSeriesEnabled = tvSeriesTabEnabled,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
 
-        // Add/Edit Work Screen — отдельный слой; контент вкладок под ним не рисуется (см. showAddWorkScreen выше)
-        androidx.compose.animation.AnimatedVisibility(
-            visible = showAddWorkScreen,
-            enter = fadeIn(animationSpec = tween(140, easing = FastOutSlowInEasing)) + slideInVertically(
-                initialOffsetY = { it / 3 },
-                animationSpec = tween(180, easing = FastOutSlowInEasing)
-            ),
-            exit = fadeOut(animationSpec = tween(160, easing = FastOutSlowInEasing)) + slideOutVertically(
-                targetOffsetY = { it / 3 },
-                animationSpec = tween(200, easing = FastOutSlowInEasing)
-            ),
+            // Add/Edit Work Screen — отдельный слой; контент вкладок под ним не рисуется (см. showAddWorkScreen выше)
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showAddWorkScreen,
+                enter = fadeIn(animationSpec = tween(140, easing = FastOutSlowInEasing)) + slideInVertically(
+                    initialOffsetY = { it / 3 },
+                    animationSpec = tween(180, easing = FastOutSlowInEasing)
+                ),
+                exit = fadeOut(animationSpec = tween(160, easing = FastOutSlowInEasing)) + slideOutVertically(
+                    targetOffsetY = { it / 3 },
+                    animationSpec = tween(200, easing = FastOutSlowInEasing)
+                ),
 
-            modifier = Modifier
-                .fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
             ) {
                 Box(
                     modifier = Modifier
-                    .fillMaxSize()
-                    .background(mainBackgroundColor)
-            ) {
-                AddWorkScreen(
-                    onBack = {
-                        // Кнопка "Назад" в форме добавления/редактирования
-                        if (editingWork != null) {
-                            // При редактировании возвращаемся в просмотр произведения
-                            selectedWork = editingWork
-                        }
-                        showAddWorkScreen = false
-                        editingWork = null
-                    },
-                    onSave = { work ->
-                        requestSaveWork(work, editingWork) { saved ->
+                        .fillMaxSize()
+                        .background(mainBackgroundColor)
+                ) {
+                    AddWorkScreen(
+                        onBack = {
+                            // Кнопка "Назад" в форме добавления/редактирования
+                            if (editingWork != null) {
+                                // При редактировании возвращаемся в просмотр произведения
+                                selectedWork = editingWork
+                            }
                             showAddWorkScreen = false
-                            // После сохранения:
-                            // - если это было редактирование — остаёмся в экране просмотра обновлённого произведения
-                            // - если это новое произведение — остаёмся на вкладке со списком
-                            selectedWork = if (editingWork != null) saved else selectedWork
-                            editingWork = null
-                        }
-                    },
-                    work = editingWork // Pass work for editing
-                )
+                        },
+                        onSave = { work ->
+                            requestSaveWork(work, editingWork) { saved ->
+                                showAddWorkScreen = false
+                                // После сохранения:
+                                // - если это было редактирование — остаёмся в экране просмотра обновлённого произведения
+                                // - если это новое произведение — остаёмся на вкладке со списком
+                                selectedWork = if (editingWork != null) saved else selectedWork
+                            }
+                        },
+                        work = editingWork // Pass work for editing
+                    )
+                }
             }
-        }
 
             // Полноэкранное увеличенное изображение обложки
             expandedCoverWork?.let { work ->
@@ -1094,7 +1093,7 @@ fun LibraryScreen(
                         coverPath.startsWith("/") -> Uri.fromFile(File(coverPath))
                         else -> coverPath.toUri()
                     }
-                    
+
                     Box(
                         modifier = Modifier
                             .fillMaxSize()

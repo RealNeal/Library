@@ -70,12 +70,7 @@ class WorkRepository(private val context: Context) {
      * Уже сохранённые абсолютные пути не трогает.
      */
     fun persistWorkCovers(work: Work): Work {
-        val orderedPaths = buildList {
-            work.coverPath?.takeIf { it.isNotBlank() }?.let { add(it) }
-            work.coverPaths.filter { it.isNotBlank() }.forEach { path ->
-                if (path !in this) add(path)
-            }
-        }
+        val orderedPaths = work.allCoverPaths()
         if (orderedPaths.isEmpty()) return work
 
         val persistedPaths = orderedPaths.mapIndexed { index, path ->
@@ -86,9 +81,8 @@ class WorkRepository(private val context: Context) {
             ?.let { orderedPaths.indexOf(it).takeIf { idx -> idx >= 0 } }
             ?: 0
         val primary = persistedPaths.getOrElse(primaryIndex) { persistedPaths.first() }
-        val others = persistedPaths.filterIndexed { index, _ -> index != primaryIndex }
 
-        val updated = work.copy(coverPath = primary, coverPaths = others)
+        val updated = work.copy(coverPath = primary, coverPaths = persistedPaths)
         return if (updated.coverPath == work.coverPath && updated.coverPaths == work.coverPaths) work else updated
     }
 
@@ -523,8 +517,8 @@ class WorkRepository(private val context: Context) {
                     val magic = ByteArray(4)
                     destFile.inputStream().use { it.read(magic) }
                     val isZip = magic.size >= 2 &&
-                        magic[0] == 0x50.toByte() &&
-                        magic[1] == 0x4B.toByte()
+                            magic[0] == 0x50.toByte() &&
+                            magic[1] == 0x4B.toByte()
                     when {
                         isZip -> previewFromZipArchive(destFile) ?: BookFormatImporter.fromEpub(destFile)
                         else -> BookFormatImporter.fromFb2(destFile) ?: BookFormatImporter.fromPdf(destFile)
@@ -847,7 +841,7 @@ class WorkRepository(private val context: Context) {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 val head = input.bufferedReader().readText().take(4096)
                 head.contains("format=${ActivityStatisticsFormat.FORMAT_VERSION}") ||
-                    head.contains("[Heatmap]")
+                        head.contains("[Heatmap]")
             } ?: false
         } catch (_: Exception) {
             false
@@ -886,7 +880,7 @@ class WorkRepository(private val context: Context) {
             if (!exportDir.exists()) {
                 exportDir.mkdirs()
             }
-            
+
             // Create subdirectories for each work type
             val booksDir = File(exportDir, booksFolder)
             val animeDir = File(exportDir, animeFolder)
@@ -896,7 +890,7 @@ class WorkRepository(private val context: Context) {
             val animeCoversDir = File(exportDir, animeCoversFolder)
             val mangaCoversDir = File(exportDir, mangaCoversFolder)
             val seriesCoversDir = File(exportDir, seriesCoversFolder)
-            
+
             listOf(booksDir, animeDir, mangaDir, seriesDir, coversDir, animeCoversDir, mangaCoversDir, seriesCoversDir).forEach { dir ->
                 if (!dir.exists()) {
                     dir.mkdirs()
@@ -952,14 +946,14 @@ class WorkRepository(private val context: Context) {
 
             val statsFile = File(exportDir, ActivityDeltaLog.EXPORT_FILENAME)
             activityDeltaLog.exportToFile(statsFile)
-            
+
             exportDir.absolutePath
         } catch (e: Exception) {
             e.printStackTrace()
             null
         }
     }
-    
+
     fun getWorksDirectoryPath(): String {
         return worksDirectory.absolutePath
     }
@@ -971,21 +965,21 @@ class WorkRepository(private val context: Context) {
     fun recompressAllCovers(context: Context): Pair<Int, Int> {
         var successCount = 0
         var totalCount = 0
-        
+
         try {
             val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
             val coversDir = File(baseDir, "covers")
-            
+
             if (!coversDir.exists() || !coversDir.isDirectory) {
                 return Pair(0, 0)
             }
-            
+
             val coverFiles = coversDir.listFiles { _, name ->
-                name.endsWith(".jpg", ignoreCase = true) || 
-                name.endsWith(".jpeg", ignoreCase = true) ||
-                name.endsWith(".png", ignoreCase = true)
+                name.endsWith(".jpg", ignoreCase = true) ||
+                        name.endsWith(".jpeg", ignoreCase = true) ||
+                        name.endsWith(".png", ignoreCase = true)
             }
-            
+
             coverFiles?.forEach { coverFile ->
                 totalCount++
                 try {
@@ -1004,7 +998,7 @@ class WorkRepository(private val context: Context) {
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        
+
         return Pair(successCount, totalCount)
     }
 
@@ -1020,19 +1014,19 @@ class WorkRepository(private val context: Context) {
     ): ByteArray? {
         return try {
             if (!imageFile.exists()) return null
-            
+
             // Загружаем изображение с уменьшенным разрешением для экономии памяти
             val options = BitmapFactory.Options().apply {
                 inJustDecodeBounds = true
             }
             BitmapFactory.decodeFile(imageFile.absolutePath, options)
-            
+
             // Вычисляем коэффициент масштабирования
             val scale = minOf(
                 maxWidth.toFloat() / options.outWidth,
                 maxHeight.toFloat() / options.outHeight
             ).coerceAtMost(1f)
-            
+
             // Загружаем изображение с нужным масштабом
             val scaledOptions = BitmapFactory.Options().apply {
                 inSampleSize = if (scale < 1f) {
@@ -1047,10 +1041,10 @@ class WorkRepository(private val context: Context) {
                     1
                 }
             }
-            
+
             var bitmap = BitmapFactory.decodeFile(imageFile.absolutePath, scaledOptions)
             if (bitmap == null) return null
-            
+
             // Дополнительное масштабирование, если нужно
             if (bitmap.width > maxWidth || bitmap.height > maxHeight) {
                 val width = bitmap.width
@@ -1058,15 +1052,15 @@ class WorkRepository(private val context: Context) {
                 val ratio = minOf(maxWidth.toFloat() / width, maxHeight.toFloat() / height)
                 val newWidth = (width * ratio).toInt()
                 val newHeight = (height * ratio).toInt()
-                
+
                 bitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
             }
-            
+
             // Сжимаем в JPEG
             val outputStream = ByteArrayOutputStream()
             bitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream)
             bitmap.recycle()
-            
+
             outputStream.toByteArray()
         } catch (e: Exception) {
             e.printStackTrace()
@@ -1086,20 +1080,20 @@ class WorkRepository(private val context: Context) {
     ): ByteArray? {
         return try {
             val inputStream = context.contentResolver.openInputStream(uri) ?: return null
-            
+
             // Загружаем изображение с уменьшенным разрешением для экономии памяти
             val options = BitmapFactory.Options().apply {
                 inJustDecodeBounds = true
             }
             BitmapFactory.decodeStream(inputStream, null, options)
             inputStream.close()
-            
+
             // Вычисляем коэффициент масштабирования
             val scale = minOf(
                 maxWidth.toFloat() / options.outWidth,
                 maxHeight.toFloat() / options.outHeight
             ).coerceAtMost(1f)
-            
+
             // Загружаем изображение с нужным масштабом
             val scaledOptions = BitmapFactory.Options().apply {
                 inSampleSize = if (scale < 1f) {
@@ -1114,13 +1108,13 @@ class WorkRepository(private val context: Context) {
                     1
                 }
             }
-            
+
             val inputStream2 = context.contentResolver.openInputStream(uri) ?: return null
             var bitmap = BitmapFactory.decodeStream(inputStream2, null, scaledOptions)
             inputStream2.close()
-            
+
             if (bitmap == null) return null
-            
+
             // Дополнительное масштабирование, если нужно
             if (bitmap.width > maxWidth || bitmap.height > maxHeight) {
                 val width = bitmap.width
@@ -1128,15 +1122,15 @@ class WorkRepository(private val context: Context) {
                 val ratio = minOf(maxWidth.toFloat() / width, maxHeight.toFloat() / height)
                 val newWidth = (width * ratio).toInt()
                 val newHeight = (height * ratio).toInt()
-                
+
                 bitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
             }
-            
+
             // Сжимаем в JPEG
             val outputStream = ByteArrayOutputStream()
             bitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream)
             bitmap.recycle()
-            
+
             outputStream.toByteArray()
         } catch (e: Exception) {
             e.printStackTrace()

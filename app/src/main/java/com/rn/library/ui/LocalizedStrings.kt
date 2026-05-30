@@ -242,7 +242,7 @@ object LocalizedStrings {
         editWork = "Редактировать",
         allTypes = "Все",
         chaptersView = "Главы",
-        volumesView = "Тома",
+        volumesView = "Томов",
         episodesView = "Серии",
         seriesView = "Серии",
         seasonsView = "Сезоны",
@@ -328,4 +328,3 @@ object LocalizedStrings {
         seasonUnitPrefix = "Сезон"
     )
 }
-
