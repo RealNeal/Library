@@ -46,6 +46,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.window.Dialog
 import com.rn.library.ui.AppSettings
 import com.rn.library.ui.components.CoverCarousel
+import com.rn.library.ui.components.ScrollIsolatedMultilineField
 import com.rn.library.ui.components.filterUnitDecimalInput
 import com.rn.library.ui.components.formatEditableUnitNumber
 import com.rn.library.ui.components.parseUnitDecimalInput
@@ -67,7 +68,8 @@ private data class EditInfoItem(
 private enum class EditInfoType {
     STRING,
     INT,
-    DATE
+    DATE,
+    DATE_LIST
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -359,12 +361,10 @@ fun WorkDetailScreen(
                 label = when (work.type) {
                     WorkType.BOOK, WorkType.MANGA -> strings.dateReread
                     WorkType.ANIME, WorkType.SERIES -> strings.dateRewatch
+                    else -> strings.repeats
                 },
-                // Храним только цифры DDMMYYYY (показываем с точками через DateVisualTransformation)
-                value = work.rereadDates.firstOrNull()?.split("-")?.let { parts ->
-                    if (parts.size == 3) parts[2] + parts[1] + parts[0] else null
-                }.orEmpty(),
-                type = EditInfoType.DATE,
+                value = formatRereadDatesForDisplay(work.rereadDates),
+                type = EditInfoType.DATE_LIST,
                 originalValue = work.rereadDates
             )
         )
@@ -757,6 +757,7 @@ fun WorkDetailScreen(
                 val rereadLabel = when (work.type) {
                     WorkType.BOOK, WorkType.MANGA -> strings.dateReread
                     WorkType.ANIME, WorkType.SERIES -> strings.dateRewatch
+                    else -> strings.repeats
                 }
                 infoParts.add("$rereadLabel: $rereads")
             }
@@ -1180,7 +1181,7 @@ private fun EditInfoDialog(
         val initial = savedIndex?.coerceIn(work.unitProgress.indices) ?: fallback
         mutableIntStateOf(initial)
     }
-    var syncApplyUnitNumber by remember {
+    var syncApplyUnitProgress by remember {
         mutableStateOf<() -> UnitProgressEditState>({
             UnitProgressEditState(unitProgressEdits, selectedUnitIndex)
         })
@@ -1194,6 +1195,7 @@ private fun EditInfoDialog(
         else -> ""
     }
 
+    val editDialogScrollState = rememberScrollState()
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier
@@ -1205,7 +1207,7 @@ private fun EditInfoDialog(
             Column(
                 modifier = Modifier
                     .padding(16.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(editDialogScrollState),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Поля для редактирования
@@ -1220,7 +1222,7 @@ private fun EditInfoDialog(
                             onUnitProgressListChange = { unitProgressEdits = it.toMutableList() },
                             maxUnitNumber = editDialogMaxUnitNumber(tempWork, tempValues),
                             incrementStep = incrementStep,
-                            onRegisterSyncApplyUnitNumber = { syncApplyUnitNumber = it },
+                            onRegisterSyncApplyUnitProgress = { syncApplyUnitProgress = it },
                             searchBarColor = searchBarColor,
                             fieldTextColor = fieldTextColor,
                             iconTextColor = iconTextColor,
@@ -1232,7 +1234,31 @@ private fun EditInfoDialog(
                         mutableStateOf(item.value ?: "")
                     }
 
-                    if (item.type == EditInfoType.DATE) {
+                    if (item.type == EditInfoType.DATE_LIST) {
+                        ScrollIsolatedMultilineField(
+                            value = textValue,
+                            onValueChange = { newValue ->
+                                val filtered = filterRereadDatesInput(newValue)
+                                textValue = filtered
+                                tempValues[index] = item.copy(value = filtered)
+                            },
+                            label = { Text(item.label) },
+                            placeholder = { Text(strings.rereadDatesPlaceholder) },
+                            minLines = 1,
+                            maxLines = 5,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = searchBarColor,
+                                unfocusedContainerColor = searchBarColor,
+                                focusedIndicatorColor = iconTextColor.copy(alpha = 0.6f),
+                                unfocusedIndicatorColor = iconTextColor.copy(alpha = 0.3f),
+                                focusedTextColor = fieldTextColor,
+                                unfocusedTextColor = fieldTextColor,
+                                focusedLabelColor = fieldTextColor,
+                                unfocusedLabelColor = fieldTextColor
+                            ),
+                            parentScrollState = editDialogScrollState,
+                        )
+                    } else if (item.type == EditInfoType.DATE) {
                         // Как в AddWorkScreen: только цифры (DDMMYYYY) + визуальная маска ДД.ММ.ГГГГ
                         OutlinedTextField(
                             value = textValue,
@@ -1385,7 +1411,7 @@ private fun EditInfoDialog(
                     Button(
                         onClick = {
                             val unitEditState = if (unitProgressEdits.isNotEmpty()) {
-                                syncApplyUnitNumber().also {
+                                syncApplyUnitProgress().also {
                                     unitProgressEdits = it.units.toMutableList()
                                     selectedUnitIndex = it.activeIndex
                                 }
@@ -1458,20 +1484,29 @@ private fun EditInfoDialog(
                                         updatedWork.copy(dateRead = newDate)
                                     }
                                     "rereadDates" -> {
-                                        val digits = item.value
-                                            ?.filter { it.isDigit() }
-                                            .orEmpty()
-                                        val date = if (digits.length == 8) {
-                                            val day = digits.substring(0, 2)
-                                            val month = digits.substring(2, 4)
-                                            val year = digits.substring(4, 8)
-                                            "$year-$month-$day"
-                                        } else null
-                                        updatedWork.copy(rereadDates = date?.let { listOf(it) } ?: emptyList())
+                                        updatedWork.copy(
+                                            rereadDates = parseRereadDatesForSave(item.value.orEmpty())
+                                        )
                                     }
                                     "note" -> updatedWork.copy(note = item.value?.takeIf { it.isNotBlank() })
                                     else -> updatedWork
                                 }
+                            }
+
+                            // При «Прочитано»/«Просмотрено» синхронизируем progress с актуальным числом глав/серий,
+                            // чтобы статистика и активность учитывали изменения полей «Главы»/«Серии».
+                            updatedWork = when {
+                                updatedWork.status == WorkStatus.READ &&
+                                    updatedWork.type in setOf(WorkType.BOOK, WorkType.MANGA) -> {
+                                    val total = fullReadChapterUnits(updatedWork)
+                                    if (total > 0.0) updatedWork.copy(progress = total) else updatedWork
+                                }
+                                updatedWork.status == WorkStatus.WATCHED &&
+                                    updatedWork.type in setOf(WorkType.ANIME, WorkType.SERIES) -> {
+                                    val total = fullWatchedEpisodeUnits(updatedWork)
+                                    if (total > 0.0) updatedWork.copy(progress = total) else updatedWork
+                                }
+                                else -> updatedWork
                             }
 
                             onSave(updatedWork)
@@ -1512,7 +1547,7 @@ private fun EditUnitProgressFieldRow(
     onUnitProgressListChange: (List<UnitProgress>) -> Unit,
     maxUnitNumber: Int?,
     incrementStep: Int,
-    onRegisterSyncApplyUnitNumber: ((() -> UnitProgressEditState) -> Unit)? = null,
+    onRegisterSyncApplyUnitProgress: ((() -> UnitProgressEditState) -> Unit)? = null,
     searchBarColor: Color,
     fieldTextColor: Color,
     iconTextColor: Color,
@@ -1588,15 +1623,24 @@ private fun EditUnitProgressFieldRow(
         unitNumberText = coerced.toString()
     }
 
-    fun applyUnitNumberFromText(): UnitProgressEditState {
+    fun applyUnitNumberFromText(
+        fromState: UnitProgressEditState = UnitProgressEditState(unitProgressList, safeIndex),
+    ): UnitProgressEditState {
         val digits = unitNumberText.filter { it.isDigit() }
         if (digits.isEmpty()) {
-            unitNumberText = (safeIndex + 1).toString()
-            return UnitProgressEditState(unitProgressList, safeIndex)
+            unitNumberText = (fromState.activeIndex + 1).toString()
+            return fromState
         }
-        val coerced = coerceUnitNumber(digits.toIntOrNull() ?: (safeIndex + 1))
+        val coerced = coerceUnitNumber(digits.toIntOrNull() ?: (fromState.activeIndex + 1))
         val targetIndex = coerced - 1
-        val updated = ensureUnitsUpTo(targetIndex)
+        val updated = fromState.units.toMutableList()
+        while (updated.size <= targetIndex) {
+            updated += UnitProgress(
+                unitName = "$unitPrefixLabel ${updated.size + 1}",
+                completed = 0.0,
+                total = null,
+            )
+        }
         onUnitProgressListChange(updated)
         onSelectedUnitIndexChange(targetIndex)
         unitNumberText = coerced.toString()
@@ -1604,17 +1648,40 @@ private fun EditUnitProgressFieldRow(
         return UnitProgressEditState(updated, targetIndex)
     }
 
+    fun applyCompletedFromText(): UnitProgressEditState {
+        val completed = parseUnitDecimalInput(completedText, emptyAsZero = true) ?: 0.0
+        val index = safeIndex
+        if (index !in unitProgressList.indices) {
+            return UnitProgressEditState(unitProgressList, index)
+        }
+        val updated = unitProgressList.toMutableList()
+        val unit = updated[index]
+        val safeCompleted = completed.coerceAtLeast(0.0)
+        val newTotal = unit.total?.takeIf { it > 0.0 }
+            ?: safeCompleted.takeIf { it > 0.0 }
+        updated[index] = unit.copy(completed = safeCompleted, total = newTotal)
+        onUnitProgressListChange(updated)
+        completedFieldFocused = false
+        return UnitProgressEditState(updated, index)
+    }
+
     fun currentUnitProgressState(): UnitProgressEditState =
         UnitProgressEditState(unitProgressList, safeIndex)
 
-    SideEffect {
-        onRegisterSyncApplyUnitNumber?.invoke {
-            if (unitNumberText.filter { it.isDigit() }.isNotEmpty()) {
-                applyUnitNumberFromText()
-            } else {
-                currentUnitProgressState()
-            }
+    fun syncUnitProgressEditsFromFields(): UnitProgressEditState {
+        var state = if (completedText != formatEditableUnitNumber(currentUnit.completed, emptyAsZero = true)) {
+            applyCompletedFromText()
+        } else {
+            currentUnitProgressState()
         }
+        if (unitNumberText.filter { it.isDigit() }.isNotEmpty()) {
+            state = applyUnitNumberFromText(state)
+        }
+        return state
+    }
+
+    SideEffect {
+        onRegisterSyncApplyUnitProgress?.invoke(::syncUnitProgressEditsFromFields)
     }
 
     fun updateCompletedForIndex(index: Int, completed: Double) {

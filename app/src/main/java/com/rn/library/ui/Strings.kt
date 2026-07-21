@@ -111,6 +111,7 @@ data class Strings(
     val symbolsGenitive: String,
     val incrementStepLabel: String,
     val datePlaceholder: String,
+    val rereadDatesPlaceholder: String,
     val repeats: String,
     val link1: String,
     val link2: String,

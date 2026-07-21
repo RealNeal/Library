@@ -159,15 +159,8 @@ fun AddWorkScreen(
             } ?: ""
         )
     }
-    // Храним только цифры DDMMYYYY (маска ставит точки визуально)
-    var rereadDate by remember(work?.rereadDates) {
-        mutableStateOf(
-            work?.rereadDates
-                ?.firstOrNull()
-                ?.split("-")
-                ?.let { parts -> if (parts.size == 3) parts[2] + parts[1] + parts[0] else "" }
-                .orEmpty()
-        )
+    var rereadDatesText by remember(work?.rereadDates) {
+        mutableStateOf(formatRereadDatesForDisplay(work?.rereadDates.orEmpty()))
     }
     var link1 by remember(work?.link) { mutableStateOf(work?.link ?: "") }
     var link2 by remember(work?.link2) { mutableStateOf(work?.link2 ?: "") }
@@ -295,6 +288,7 @@ fun AddWorkScreen(
             .background(bg)
             .statusBarsPadding()
     ) {
+<<<<<<< Updated upstream
             // Заголовок с кнопкой назад
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -302,6 +296,109 @@ fun AddWorkScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
                     .padding(vertical = 16.dp)
+=======
+        // Заголовок с кнопкой назад
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(vertical = 16.dp)
+        ) {
+            IconButton(onClick = ::closeNow) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = text)
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = if (work == null) strings.addWork else strings.editWork,
+                color = text,
+                style = MaterialTheme.typography.titleLarge
+            )
+        }
+
+        val formScrollState = rememberScrollState()
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(formScrollState)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Название
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = { Text(strings.title) },
+                placeholder = { Text(strings.titlePlaceholder) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = fieldBg,
+                    unfocusedContainerColor = fieldBg
+                )
+            )
+
+            // Альтернативные названия: фиксированная высота + изоляция скролла от формы
+            ScrollIsolatedMultilineField(
+                value = alternativeTitles,
+                onValueChange = { alternativeTitles = it },
+                label = { Text(strings.alternativeTitles) },
+                placeholder = { Text(strings.otherTitlesPlaceholder) },
+                minLines = 1,
+                maxLines = 3,
+                colors = fieldColors,
+                parentScrollState = formScrollState,
+            )
+
+            ScrollIsolatedMultilineField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text(strings.description) },
+                minLines = 5,
+                maxLines = 11,
+                colors = fieldColors,
+                parentScrollState = formScrollState,
+            )
+
+            // Тип произведения
+            CustomDropdown(
+                label = strings.type,
+                value = when (type) {
+                    WorkType.BOOK -> "Книга"
+                    WorkType.ANIME -> "Аниме"
+                    WorkType.MANGA -> "Манга"
+                    WorkType.SERIES -> "Сериал"
+                },
+                items = listOf("Книга", "Аниме", "Манга", "Сериал"),
+                expanded = typeDropdownExpanded,
+                onExpandedChange = { typeDropdownExpanded = it },
+                onItemSelected = { selected ->
+                    type = when (selected) {
+                        "Книга" -> WorkType.BOOK
+                        "Аниме" -> WorkType.ANIME
+                        "Манга" -> WorkType.MANGA
+                        "Сериал" -> WorkType.SERIES
+                        else -> WorkType.BOOK
+                    }
+                    typeDropdownExpanded = false
+                    // Сбрасываем статус если он не соответствует типу
+                    val validStatuses = getStatusOptions().map { it.first }
+                    if (status !in validStatuses) {
+                        status = WorkStatus.IN_PLANS
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Подтип для манги/сериала
+            AnimatedVisibility(
+                visible = type == WorkType.MANGA,
+                enter = expandVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) +
+                        fadeIn(animationSpec = tween(250, easing = FastOutSlowInEasing)),
+                exit = shrinkVertically(animationSpec = tween(200, easing = FastOutSlowInEasing)) +
+                        fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing))
+>>>>>>> Stashed changes
             ) {
                 IconButton(onClick = ::closeNow) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = text)
@@ -798,6 +895,7 @@ fun AddWorkScreen(
                         unfocusedContainerColor = fieldBg
                     )
                 )
+<<<<<<< Updated upstream
                 
                 // Ссылки
                 OutlinedTextField(
@@ -809,6 +907,118 @@ fun AddWorkScreen(
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = fieldBg,
                         unfocusedContainerColor = fieldBg
+=======
+            }
+
+            ScrollIsolatedMultilineField(
+                value = rereadDatesText,
+                onValueChange = { rereadDatesText = filterRereadDatesInput(it) },
+                label = {
+                    Text(
+                        when (type) {
+                            WorkType.BOOK, WorkType.MANGA -> strings.dateReread
+                            WorkType.ANIME, WorkType.SERIES -> strings.dateRewatch
+                            else -> strings.repeats
+                        }
+                    )
+                },
+                placeholder = { Text(strings.rereadDatesPlaceholder) },
+                minLines = 1,
+                maxLines = 5,
+                colors = fieldColors,
+                parentScrollState = formScrollState,
+            )
+
+            // Ссылки
+            OutlinedTextField(
+                value = link1,
+                onValueChange = { link1 = it },
+                label = { Text(strings.link1) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = fieldBg,
+                    unfocusedContainerColor = fieldBg
+                )
+            )
+
+            OutlinedTextField(
+                value = link2,
+                onValueChange = { link2 = it },
+                label = { Text(strings.link2) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = fieldBg,
+                    unfocusedContainerColor = fieldBg
+                )
+            )
+
+            // Заметка
+            OutlinedTextField(
+                value = note,
+                onValueChange = { note = it },
+                label = { Text(strings.noteLabel) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = fieldBg,
+                    unfocusedContainerColor = fieldBg
+                )
+            )
+
+            Button(
+                onClick = {
+                    val id = stableWorkId
+                    val rereadSaved = parseRereadDatesForSave(rereadDatesText)
+
+                    val workToSave = Work(
+                        // Год может быть либо одиночным, либо периодом.
+                        // Если введён период, сохраняем в yearPeriod, а year оставляем null.
+                        // Если введён одиночный год, сохраняем в year.
+                        // Это сохраняет обратную совместимость со старыми данными.
+                        id = id,
+                        title = title.trim(),
+                        description = description,
+                        type = type,
+                        status = status,
+                        coverPath = coverPaths.getOrNull(selectedCoverIndex),
+                        otherTitle = formatAlternativeTitlesForSave(alternativeTitles).ifEmpty { null },
+                        coverPaths = coverPaths.filterIndexed { index, _ -> index != selectedCoverIndex },
+                        volumes = if (type == WorkType.MANGA) volumes.toDoubleOrNull() else null,
+                        seasons = seasons.toIntOrNull(),
+                        chapters = when (type) {
+                            WorkType.BOOK, WorkType.MANGA -> chapters.toDoubleOrNull()
+                            else -> null
+                        },
+                        bookChapters = bookChapters.toDoubleOrNull(),
+                        episodes = episodes.toDoubleOrNull(),
+                        progress = when {
+                            useUnitProgress && unitProgressList.isNotEmpty() ->
+                                unitProgressList.sumOf { it.completed }
+                            readChapters.isBlank() -> null
+                            else -> readChapters.toDoubleOrNull()
+                        },
+                        activeUnitIndex = work?.activeUnitIndex,
+                        country = country.ifEmpty { null },
+                        animeSeason = animeSeason,
+                        mangaType = if (type == WorkType.MANGA) mangaType else null,
+                        seriesType = if (type == WorkType.SERIES) seriesType else null,
+                        year = year.trim().takeIf { singleYearPattern.matcher(it).matches() }?.toIntOrNull(),
+                        yearPeriod = year.trim()
+                            .takeIf { yearPeriodPattern.matcher(it).matches() }
+                            ?.replace(Regex("\\s*-\\s*"), " - "),
+                        dateRead = formatDateForSave(dateRead).ifEmpty { null },
+                        rereadDates = rereadSaved,
+                        link = link1.ifEmpty { null },
+                        link2 = link2.ifEmpty { null },
+                        note = note.ifEmpty { null },
+                        updatedAt = System.currentTimeMillis(),
+                        // Сохраняем существующие поля
+                        abandonedProgress = work?.abandonedProgress,
+                        readingPeriods = work?.readingPeriods ?: emptyList(),
+                        unitProgress = if (useUnitProgress) unitProgressList else emptyList()
+>>>>>>> Stashed changes
                     )
                 )
                 

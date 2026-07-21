@@ -219,7 +219,18 @@ fun ProfileScreen(
                 } catch (_: Exception) {
                     // Не критично: разовый доступ всё равно может сработать
                 }
-                repository.importExportedBackupsFromTree(context, treeUri)
+                repository.importExportedBackupsFromTree(
+                    context = context,
+                    treeUri = treeUri,
+                    booksFolder = strings.booksFolder,
+                    animeFolder = strings.animeFolder,
+                    mangaFolder = strings.mangaFolder,
+                    seriesFolder = strings.seriesFolder,
+                    bookCoversFolder = strings.bookCoversFolder,
+                    animeCoversFolder = strings.animeCoversFolder,
+                    mangaCoversFolder = strings.mangaCoversFolder,
+                    seriesCoversFolder = strings.seriesCoversFolder,
+                )
             }
             works = repository.getAllWorks()
             activityStatsEpoch++

@@ -13,10 +13,10 @@ class ActivityDeltaLog(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     fun appendEvent(event: ActivityDeltaEvent) {
-        val key = KEY_EVENTS
-        val current = prefs.getStringSet(key, emptySet()).orEmpty().toMutableSet()
-        current.add(encode(event))
-        prefs.edit { putStringSet(key, current) }
+        if (event.readDelta == 0.0 && event.watchDelta == 0.0) return
+        val events = loadEvents().toMutableList()
+        mergeInto(events, event)
+        persistEvents(events)
     }
 
     fun loadEvents(): List<ActivityDeltaEvent> {
@@ -27,13 +27,35 @@ class ActivityDeltaLog(context: Context) {
 
     fun mergeEvents(newEvents: List<ActivityDeltaEvent>) {
         if (newEvents.isEmpty()) return
-        val current = prefs.getStringSet(KEY_EVENTS, emptySet()).orEmpty().toMutableSet()
-        newEvents.forEach { current.add(encode(it)) }
-        prefs.edit { putStringSet(KEY_EVENTS, current) }
+        val events = loadEvents().toMutableList()
+        newEvents.forEach { mergeInto(events, it) }
+        persistEvents(events)
     }
 
     fun replaceAllEvents(events: List<ActivityDeltaEvent>) {
-        val encoded = events.map { encode(it) }.toSet()
+        persistEvents(events)
+    }
+
+    private fun mergeInto(events: MutableList<ActivityDeltaEvent>, event: ActivityDeltaEvent) {
+        if (event.readDelta == 0.0 && event.watchDelta == 0.0) return
+        val index = events.indexOfFirst { it.date == event.date && it.workId == event.workId }
+        if (index >= 0) {
+            val merged = events[index].copy(
+                readDelta = events[index].readDelta + event.readDelta,
+                watchDelta = events[index].watchDelta + event.watchDelta
+            )
+            if (merged.readDelta == 0.0 && merged.watchDelta == 0.0) {
+                events.removeAt(index)
+            } else {
+                events[index] = merged
+            }
+        } else {
+            events.add(event)
+        }
+    }
+
+    private fun persistEvents(events: List<ActivityDeltaEvent>) {
+        val encoded = events.map { encode(it) }.toHashSet()
         prefs.edit { putStringSet(KEY_EVENTS, encoded) }
     }
 

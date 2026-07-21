@@ -88,7 +88,12 @@ class WorkRepository(private val context: Context) {
         val primary = persistedPaths.getOrElse(primaryIndex) { persistedPaths.first() }
         val others = persistedPaths.filterIndexed { index, _ -> index != primaryIndex }
 
+<<<<<<< Updated upstream
         val updated = work.copy(coverPath = primary, coverPaths = others)
+=======
+        val additional = persistedPaths.filterIndexed { index, _ -> index != primaryIndex }
+        val updated = work.copy(coverPath = primary, coverPaths = additional)
+>>>>>>> Stashed changes
         return if (updated.coverPath == work.coverPath && updated.coverPaths == work.coverPaths) work else updated
     }
 
@@ -123,7 +128,7 @@ class WorkRepository(private val context: Context) {
                 FileOutputStream(outputFile).use { it.write(compressed) }
                 outputFile.absolutePath
             } else {
-                copyCoverFromDocument(context, uri, "${workId}_$index")
+                copyCoverFromDocument(context, uri, workId, index)
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -141,22 +146,38 @@ class WorkRepository(private val context: Context) {
 
     /** Прирост единиц прогресса между сохранённым и новым состоянием произведения. */
     fun calculateProgressDelta(previous: Work?, saved: Work): Pair<Double, Double> {
-        val oldRead = previous?.let { readProgressUnits(it) } ?: 0.0
-        val newRead = readProgressUnits(saved)
-        val readDelta = newRead - oldRead
-        val oldWatch = previous?.let { watchedProgressUnits(it) } ?: 0.0
-        val newWatch = watchedProgressUnits(saved)
-        val watchDelta = newWatch - oldWatch
+        val oldRead = previous?.let { activityReadProgressUnits(it) } ?: 0.0
+        val newRead = activityReadProgressUnits(saved)
+        var readDelta = newRead - oldRead
+        val oldWatch = previous?.let { activityWatchedProgressUnits(it) } ?: 0.0
+        val newWatch = activityWatchedProgressUnits(saved)
+        var watchDelta = newWatch - oldWatch
+        if (previous != null && previous.status != saved.status) {
+            // Смена статуса на «Прочитано»/«Просмотрено» без поштучного учёта не должна
+            // добавлять в heatmap весь объём произведения разом.
+            if (saved.type in setOf(WorkType.BOOK, WorkType.MANGA) &&
+                saved.status == WorkStatus.READ &&
+                saved.unitProgress.isEmpty()
+            ) {
+                readDelta = 0.0
+            }
+            if (saved.type in setOf(WorkType.ANIME, WorkType.SERIES) &&
+                saved.status == WorkStatus.WATCHED &&
+                saved.unitProgress.isEmpty()
+            ) {
+                watchDelta = 0.0
+            }
+        }
         return readDelta to watchDelta
     }
 
     /** Нужно ли спрашивать пользователя о записи в Heatmap / «Активность по периодам». */
     fun shouldConfirmLargeActivityDelta(previous: Work?, saved: Work): Boolean {
         val (readDelta, watchDelta) = calculateProgressDelta(previous, saved)
-        if (readDelta <= 0.0 && watchDelta <= 0.0) return false
+        if (readDelta == 0.0 && watchDelta == 0.0) return false
         return when (saved.type) {
-            WorkType.BOOK, WorkType.MANGA -> readDelta > LARGE_ACTIVITY_DELTA_THRESHOLD
-            WorkType.ANIME, WorkType.SERIES -> watchDelta > LARGE_ACTIVITY_DELTA_THRESHOLD
+            WorkType.BOOK, WorkType.MANGA -> kotlin.math.abs(readDelta) > LARGE_ACTIVITY_DELTA_THRESHOLD
+            WorkType.ANIME, WorkType.SERIES -> kotlin.math.abs(watchDelta) > LARGE_ACTIVITY_DELTA_THRESHOLD
         }
     }
 
@@ -215,7 +236,7 @@ class WorkRepository(private val context: Context) {
 
     private fun recordProgressDelta(previous: Work?, saved: Work) {
         val (readDelta, watchDelta) = calculateProgressDelta(previous, saved)
-        if (readDelta <= 0.0 && watchDelta <= 0.0) return
+        if (readDelta == 0.0 && watchDelta == 0.0) return
         val today = LocalDate.now(ZoneId.systemDefault())
         activityDeltaLog.appendEvent(
             ActivityDeltaEvent(
@@ -237,18 +258,35 @@ class WorkRepository(private val context: Context) {
         }
     }
 
-    private fun workToMarkdown(work: Work): String {
+    private data class ExportCoverHints(
+        val exportBase: String? = null,
+        val exportCoverNames: List<String> = emptyList(),
+    )
+
+    private fun workToMarkdown(
+        work: Work,
+        exportHints: ExportCoverHints? = null,
+    ): String {
         val sb = StringBuilder()
         sb.appendLine("---")
         sb.appendLine("id: ${work.id}")
         sb.appendLine("title: ${escapeMarkdown(work.title)}")
         sb.appendLine("type: ${work.type.name}")
         sb.appendLine("status: ${work.status.name}")
-        work.coverPath?.let {
-            sb.appendLine("cover: $it")
-        }
-        if (work.coverPaths.isNotEmpty()) {
-            sb.appendLine("covers: ${encodeList(work.coverPaths)}")
+        if (exportHints != null) {
+            exportHints.exportBase?.let {
+                sb.appendLine("exportBase: ${escapeMarkdown(it)}")
+            }
+            if (exportHints.exportCoverNames.isNotEmpty()) {
+                sb.appendLine("exportCovers: ${encodeList(exportHints.exportCoverNames)}")
+            }
+        } else {
+            work.coverPath?.let {
+                sb.appendLine("cover: $it")
+            }
+            if (work.coverPaths.isNotEmpty()) {
+                sb.appendLine("covers: ${encodeList(work.coverPaths)}")
+            }
         }
         work.chapters?.let {
             sb.appendLine("chapters: ${formatDoubleForDisplay(it)}")
@@ -446,14 +484,21 @@ class WorkRepository(private val context: Context) {
 
     fun importExportedBackupsFromTree(
         context: Context,
-        treeUri: Uri
+        treeUri: Uri,
+        booksFolder: String = "Книги",
+        animeFolder: String = "Аниме",
+        mangaFolder: String = "Манга",
+        seriesFolder: String = "Сериалы",
+        bookCoversFolder: String = "Обложки книг",
+        animeCoversFolder: String = "Обложки аниме",
+        mangaCoversFolder: String = "Обложки манги",
+        seriesCoversFolder: String = "Обложки сериалов",
     ): Triple<Int, Int, List<String>> {
         val errors = mutableListOf<String>()
         return try {
             val allDocs = collectTreeDocuments(context, treeUri)
             val markdownDocs = allDocs.filter { it.name.endsWith(".md", ignoreCase = true) }
             val imageDocs = allDocs.filter { isImageName(it.name) }
-            val imageByBase = imageDocs.associateBy { it.name.substringBeforeLast('.').lowercase(Locale.getDefault()) }
             var imported = 0
             allDocs
                 .filter { isActivityStatisticsDocument(context, it) }
@@ -474,10 +519,17 @@ class WorkRepository(private val context: Context) {
                         errors += "${doc.name} (некорректный markdown)"
                         return@forEach
                     }
-                    val baseFromMdName = doc.name.substringBeforeLast('.').lowercase(Locale.getDefault())
-                    val coverDoc = imageByBase[baseFromMdName]
-                    val importedCoverPath = coverDoc?.let { copyCoverFromDocument(context, it.uri, parsed.id) }
-                    val workToSave = parsed.copy(coverPath = importedCoverPath ?: parsed.coverPath)
+                    val hints = parseExportCoverHints(text)
+                    val exportBase = hints.exportBase ?: doc.name.substringBeforeLast('.')
+                    val importedCoverPaths = importCoversFromDocuments(
+                        context = context,
+                        exportBase = exportBase,
+                        exportCoverNames = hints.exportCoverNames,
+                        imageDocs = imageDocs,
+                        workId = parsed.id,
+                        workType = parsed.type,
+                    )
+                    val workToSave = applyImportedCovers(parsed, importedCoverPaths)
                     if (saveWork(workToSave, preserveUpdatedAt = true, recordActivity = false)) {
                         imported++
                     } else {
@@ -597,7 +649,11 @@ class WorkRepository(private val context: Context) {
         booksFolder: String = "Книги",
         animeFolder: String = "Аниме",
         mangaFolder: String = "Манга",
-        seriesFolder: String = "Сериалы"
+        seriesFolder: String = "Сериалы",
+        bookCoversFolder: String = "Обложки книг",
+        animeCoversFolder: String = "Обложки аниме",
+        mangaCoversFolder: String = "Обложки манги",
+        seriesCoversFolder: String = "Обложки сериалов"
     ): Pair<Int, Int> {
         return try {
             val externalRoot = Environment.getExternalStorageDirectory()
@@ -675,11 +731,52 @@ class WorkRepository(private val context: Context) {
                 }
                 .distinctBy { it.absolutePath }
 
+            val coverDirsByType = exportDirs.associateWith { exportDir ->
+                mapOf(
+                    WorkType.BOOK to resolveCoverDirs(
+                        exportDir,
+                        bookCoversFolder,
+                        *knownCoverFolderNames(WorkType.BOOK).toTypedArray()
+                    ),
+                    WorkType.ANIME to resolveCoverDirs(
+                        exportDir,
+                        animeCoversFolder,
+                        *knownCoverFolderNames(WorkType.ANIME).toTypedArray()
+                    ),
+                    WorkType.MANGA to resolveCoverDirs(
+                        exportDir,
+                        mangaCoversFolder,
+                        *knownCoverFolderNames(WorkType.MANGA).toTypedArray()
+                    ),
+                    WorkType.SERIES to resolveCoverDirs(
+                        exportDir,
+                        seriesCoversFolder,
+                        *knownCoverFolderNames(WorkType.SERIES).toTypedArray()
+                    ),
+                )
+            }
+
             var imported = 0
             mdFiles.forEach { file ->
                 try {
-                    val work = parseMarkdownFile(file)
-                    if (work != null && saveWork(work, preserveUpdatedAt = true, recordActivity = false)) {
+                    val text = file.readText()
+                    val work = parseMarkdownContent(text) ?: return@forEach
+                    val hints = parseExportCoverHints(text)
+                    val exportDir = exportDirs.firstOrNull { file.absolutePath.startsWith(it.absolutePath) }
+                    val coverDirs = exportDir?.let { coverDirsByType[it]?.get(work.type) }.orEmpty()
+                    val exportBase = hints.exportBase ?: file.name.substringBeforeLast('.')
+                    val coverFiles = coverDirs.flatMap { dir ->
+                        dir.listFiles { f -> f.isFile && isImageName(f.name) }?.toList().orEmpty()
+                    }.distinctBy { it.absolutePath }
+                    val importedCoverPaths = importCoversFromFiles(
+                        context = context,
+                        exportBase = exportBase,
+                        exportCoverNames = hints.exportCoverNames,
+                        coverFiles = coverFiles,
+                        workId = work.id,
+                    )
+                    val workToSave = applyImportedCovers(work, importedCoverPaths)
+                    if (saveWork(workToSave, preserveUpdatedAt = true, recordActivity = false)) {
                         imported++
                     }
                 } catch (_: Exception) {
@@ -741,8 +838,34 @@ class WorkRepository(private val context: Context) {
     private fun decodeList(raw: String?): List<String> {
         if (raw.isNullOrBlank()) return emptyList()
         return raw.split("||")
-            .map { it.replace("\\|", "|").trim() }
+            .map { it.replace("\\|", "|").replace("\\:", ":").trim() }
             .filter { it.isNotEmpty() }
+    }
+
+    private fun parseExportCoverHints(content: String): ExportCoverHints {
+        val frontMatterRegex = Regex("---\\s*\\n([\\s\\S]*?)\\n---")
+        val match = frontMatterRegex.find(content) ?: return ExportCoverHints()
+        val properties = parseFrontMatterProperties(match.groupValues[1])
+        return ExportCoverHints(
+            exportBase = properties["exportBase"],
+            exportCoverNames = decodeList(properties["exportCovers"]),
+        )
+    }
+
+    private fun parseFrontMatterProperties(frontMatter: String): Map<String, String> {
+        return frontMatter.split("\n")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .associate { line ->
+                val colonIndex = line.indexOf(':')
+                if (colonIndex > 0) {
+                    val key = line.substring(0, colonIndex).trim()
+                    val value = unescapeMarkdown(line.substring(colonIndex + 1).trim())
+                    key to value
+                } else {
+                    "" to ""
+                }
+            }
     }
 
     private fun encodePeriods(periods: List<ReadingPeriod>): String {
@@ -854,13 +977,11 @@ class WorkRepository(private val context: Context) {
         }
     }
 
-    private fun copyCoverFromDocument(context: Context, uri: Uri, workId: String): String? {
+    private fun copyCoverFromDocument(context: Context, uri: Uri, workId: String, index: Int): String? {
         return try {
-            val name = queryDisplayName(context, uri) ?: "cover.jpg"
-            val ext = name.substringAfterLast('.', "jpg")
             val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
             val coversDir = File(baseDir, "covers").apply { mkdirs() }
-            val imageFile = File(coversDir, "${workId}_imported.$ext")
+            val imageFile = File(coversDir, "${workId}_$index.jpg")
             context.contentResolver.openInputStream(uri)?.use { input ->
                 FileOutputStream(imageFile).use { output -> input.copyTo(output) }
             } ?: return null
@@ -868,6 +989,104 @@ class WorkRepository(private val context: Context) {
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun copyCoverFromFile(context: Context, source: File, workId: String, index: Int): String? {
+        return try {
+            val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
+            val coversDir = File(baseDir, "covers").apply { mkdirs() }
+            val imageFile = File(coversDir, "${workId}_$index.jpg")
+            FileInputStream(source).use { input ->
+                FileOutputStream(imageFile).use { output -> input.copyTo(output) }
+            }
+            imageFile.absolutePath
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun importCoversFromDocuments(
+        context: Context,
+        exportBase: String,
+        exportCoverNames: List<String>,
+        imageDocs: List<TreeDocument>,
+        workId: String,
+        workType: WorkType,
+    ): List<String> {
+        val scopedDocs = imageDocs.filter { doc ->
+            isInKnownCoverFolder(doc.relativePath, workType) || exportCoverNames.any {
+                doc.name.equals(it, ignoreCase = true)
+            }
+        }
+        val candidates = scopedDocs.ifEmpty { imageDocs }
+
+        if (exportCoverNames.isNotEmpty()) {
+            return exportCoverNames.mapIndexedNotNull { index, fileName ->
+                val doc = candidates.firstOrNull { it.name.equals(fileName, ignoreCase = true) }
+                    ?: imageDocs.firstOrNull { it.name.equals(fileName, ignoreCase = true) }
+                doc?.let { copyCoverFromDocument(context, it.uri, workId, index) }
+            }
+        }
+
+        return candidates
+            .mapNotNull { doc ->
+                val fileBase = doc.name.substringBeforeLast('.')
+                val index = parseExportCoverIndex(exportBase, fileBase) ?: return@mapNotNull null
+                index to doc
+            }
+            .sortedBy { it.first }
+            .distinctBy { it.first }
+            .mapIndexedNotNull { sequentialIndex, (_, doc) ->
+                copyCoverFromDocument(context, doc.uri, workId, sequentialIndex)
+            }
+    }
+
+    private fun importCoversFromFiles(
+        context: Context,
+        exportBase: String,
+        exportCoverNames: List<String>,
+        coverFiles: List<File>,
+        workId: String,
+    ): List<String> {
+        if (exportCoverNames.isNotEmpty()) {
+            return exportCoverNames.mapIndexedNotNull { index, fileName ->
+                val file = coverFiles.firstOrNull { it.name.equals(fileName, ignoreCase = true) }
+                file?.let { copyCoverFromFile(context, it, workId, index) }
+            }
+        }
+
+        return coverFiles
+            .mapNotNull { file ->
+                val fileBase = file.name.substringBeforeLast('.')
+                val index = parseExportCoverIndex(exportBase, fileBase) ?: return@mapNotNull null
+                index to file
+            }
+            .sortedBy { it.first }
+            .distinctBy { it.first }
+            .mapIndexedNotNull { sequentialIndex, (_, file) ->
+                copyCoverFromFile(context, file, workId, sequentialIndex)
+            }
+    }
+
+    private fun applyImportedCovers(work: Work, importedPaths: List<String>): Work {
+        if (importedPaths.isEmpty()) {
+            return work.copy(coverPath = null, coverPaths = emptyList())
+        }
+        val oldPaths = work.allCoverPaths()
+        val primaryIndex = work.coverPath
+            ?.let { oldPaths.indexOf(it).takeIf { idx -> idx >= 0 } }
+            ?: 0
+        val safePrimaryIndex = primaryIndex.coerceIn(importedPaths.indices)
+        val primary = importedPaths[safePrimaryIndex]
+        val additional = importedPaths.filterIndexed { index, _ -> index != safePrimaryIndex }
+        return work.copy(coverPath = primary, coverPaths = additional)
+    }
+
+    private fun resolveCoverDirs(exportDir: File, vararg folderNames: String): List<File> {
+        return folderNames
+            .map { File(exportDir, it) }
+            .distinctBy { it.absolutePath }
+            .filter { it.exists() && it.isDirectory }
     }
 
     fun exportWorksToDownloads(
@@ -903,10 +1122,11 @@ class WorkRepository(private val context: Context) {
                 }
             }
             listOf(coversDir, animeCoversDir, mangaCoversDir, seriesCoversDir).forEach { coverDir ->
-                val noMediaFile = File(coverDir, ".nomedia")
-                if (!noMediaFile.exists()) {
-                    noMediaFile.writeText("")
-                }
+                File(coverDir, ".nomedia").takeIf { it.exists() }?.delete()
+            }
+            val rootNoMedia = File(exportDir, ".nomedia")
+            if (!rootNoMedia.exists()) {
+                rootNoMedia.writeText("")
             }
 
             val usedExportNames = mutableSetOf<String>()
@@ -923,30 +1143,36 @@ class WorkRepository(private val context: Context) {
 
                     val base = uniqueExportBase(work.title, work.id, usedExportNames)
                     val destFile = File(targetDir, "$base.md")
-                    FileInputStream(sourceFile).use { input ->
-                        FileOutputStream(destFile).use { output ->
-                            input.copyTo(output)
+
+                    val coverTargetDir = when (work.type) {
+                        WorkType.BOOK -> coversDir
+                        WorkType.ANIME -> animeCoversDir
+                        WorkType.MANGA -> mangaCoversDir
+                        WorkType.SERIES -> seriesCoversDir
+                    }
+                    val exportedCoverNames = mutableListOf<String>()
+                    work.allCoverPaths().forEachIndexed { index, coverPath ->
+                        val coverFile = File(coverPath)
+                        if (!coverFile.exists()) return@forEachIndexed
+                        val coverExt = coverFile.extension.ifBlank { "jpg" }
+                        val coverFileName = "${exportCoverBaseName(base, index)}.$coverExt"
+                        val coverDestFile = File(coverTargetDir, coverFileName)
+                        FileInputStream(coverFile).use { input ->
+                            FileOutputStream(coverDestFile).use { output ->
+                                input.copyTo(output)
+                            }
                         }
+                        exportedCoverNames += coverFileName
                     }
 
-                    work.coverPath?.let { coverPath ->
-                        val coverFile = File(coverPath)
-                        if (coverFile.exists()) {
-                            val coverTargetDir = when (work.type) {
-                                WorkType.BOOK -> coversDir
-                                WorkType.ANIME -> animeCoversDir
-                                WorkType.MANGA -> mangaCoversDir
-                                WorkType.SERIES -> seriesCoversDir
-                            }
-                            val coverExt = coverFile.extension.ifBlank { "jpg" }
-                            val coverDestFile = File(coverTargetDir, "$base.$coverExt")
-                            FileInputStream(coverFile).use { input ->
-                                FileOutputStream(coverDestFile).use { output ->
-                                    input.copyTo(output)
-                                }
-                            }
-                        }
-                    }
+                    val exportMarkdown = workToMarkdown(
+                        work = work,
+                        exportHints = ExportCoverHints(
+                            exportBase = base,
+                            exportCoverNames = exportedCoverNames,
+                        ),
+                    )
+                    destFile.writeText(exportMarkdown)
                 }
             }
 
