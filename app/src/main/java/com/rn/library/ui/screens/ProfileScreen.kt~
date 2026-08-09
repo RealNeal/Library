@@ -444,7 +444,7 @@ fun ProfileScreen(
             }
 
             // Bottom spacer to ensure content scrolls cleanly
-            Spacer(modifier = Modifier.height(110.dp))
+            Spacer(modifier = Modifier.height(100.dp))
         }
         
         AnimatedVisibility(

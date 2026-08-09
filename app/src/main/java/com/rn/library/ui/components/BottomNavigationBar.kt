@@ -12,6 +12,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,9 +23,17 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import com.rn.library.ui.LocalStrings
 import com.rn.library.ui.screens.AppTheme
 import com.rn.library.ui.theme.*
+import com.rn.library.util.WindowHeightClass
+import com.rn.library.util.rememberWindowSizeInfo
 
 sealed class NavigationItem(
     val labelKey: (com.rn.library.ui.Strings) -> String,
@@ -77,13 +86,17 @@ fun BottomNavigationBar(
         add(NavigationItem.Profile)
     }
 
-    // Bottom panel size is controlled here - height is 154.dp (line 56)
+    val windowInfo = rememberWindowSizeInfo()
+    val isCompactHeight = windowInfo.isLandscape || windowInfo.heightClass == WindowHeightClass.COMPACT
+    val barHeight = if (isCompactHeight) 75.dp else 130.dp
+    val bottomPadding = if (isCompactHeight) 8.dp else 30.dp
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(130.dp)
+            .height(barHeight)
             .background(panelColor)
-            .padding(bottom = 30.dp),
+            .padding(bottom = bottomPadding),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -100,6 +113,7 @@ fun BottomNavigationBar(
         }
     }
 }
+
 
 @Composable
 fun NavigationButton(
@@ -122,24 +136,55 @@ fun NavigationButton(
         if (currentTheme == AppTheme.LIGHT) Color(0xFF5F6368) else Color(0xFFB0BEC5)
     val materialYouSelectedTint = saturatedAccent(dynamicScheme.primary, currentTheme == AppTheme.DARK, selected = true)
 
-    val iconTint = if (dynamicColorsEnabled) {
+    val targetIconTint = if (dynamicColorsEnabled) {
         if (isSelected) materialYouSelectedTint else materialYouInactiveTint
     } else {
         if (isSelected) staticTabContent else bottomPanelIconColor
     }
-    val labelColor = if (dynamicColorsEnabled) {
+    val targetLabelColor = if (dynamicColorsEnabled) {
         if (isSelected) materialYouSelectedTint else materialYouInactiveTint
     } else {
         if (isSelected) staticTabContent else bottomPanelLabelColor
     }
 
+    val animatedIconTint by animateColorAsState(
+        targetValue = targetIconTint,
+        animationSpec = tween(durationMillis = 200),
+        label = "animatedIconTint"
+    )
+    val animatedLabelColor by animateColorAsState(
+        targetValue = targetLabelColor,
+        animationSpec = tween(durationMillis = 200),
+        label = "animatedLabelColor"
+    )
+
     val circleColor = if (dynamicColorsEnabled) {
         dynamicScheme.secondaryContainer
-    } else if (isSelected) {
-        staticTabBackground
     } else {
-        Color.Transparent
+        staticTabBackground
     }
+
+    val circleAlpha by animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0f,
+        animationSpec = tween(durationMillis = 200),
+        label = "circleAlpha"
+    )
+    val circleScale by animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0.5f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "circleScale"
+    )
+    val iconScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.15f else 1.0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "iconScale"
+    )
 
     Column(
         modifier = modifier
@@ -155,27 +200,35 @@ fun NavigationButton(
             contentAlignment = Alignment.Center,
             modifier = Modifier.size(40.dp)
         ) {
-            if (isSelected) {
-                Box(
-                    modifier = Modifier
-                        .size(90.dp)
-                        .clip(CircleShape)
-                        .background(circleColor)
-                )
-            }
+            Box(
+                modifier = Modifier
+                    .size(90.dp)
+                    .clip(CircleShape)
+                    .graphicsLayer {
+                        alpha = circleAlpha
+                        scaleX = circleScale
+                        scaleY = circleScale
+                    }
+                    .background(circleColor)
+            )
             Icon(
                 imageVector = item.icon,
                 contentDescription = label,
-                tint = iconTint,
-                modifier = Modifier.size(30.dp)
+                tint = animatedIconTint,
+                modifier = Modifier
+                    .size(30.dp)
+                    .graphicsLayer {
+                        scaleX = iconScale
+                        scaleY = iconScale
+                    }
             )
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
-            color = labelColor,
+            color = animatedLabelColor,
             fontSize = 12.sp,
-            fontWeight = FontWeight.Medium
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
         )
     }
 }

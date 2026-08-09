@@ -161,7 +161,17 @@ fun WorkDetailScreen(
     var statusMenuExpanded by remember { mutableStateOf(false) }
     var seriesTypeMenuExpanded by remember { mutableStateOf(false) }
     var mangaTypeMenuExpanded by remember { mutableStateOf(false) }
-    
+
+    // Handle system back button for inner popups and menus
+    androidx.activity.compose.BackHandler(enabled = otherTitlesExpanded) {
+        otherTitlesExpanded = false
+    }
+    androidx.activity.compose.BackHandler(enabled = statusMenuExpanded || seriesTypeMenuExpanded || mangaTypeMenuExpanded) {
+        statusMenuExpanded = false
+        seriesTypeMenuExpanded = false
+        mangaTypeMenuExpanded = false
+    }
+
     // Pending changes to apply asynchronously
     var pendingStatusChange by remember { mutableStateOf<WorkStatus?>(null) }
     var pendingSeriesTypeChange by remember { mutableStateOf<SeriesType?>(null) }
@@ -176,7 +186,7 @@ fun WorkDetailScreen(
     LaunchedEffect(work) {
         temporaryWork = work
     }
-    
+
     // Handle pending status changes asynchronously
     LaunchedEffect(pendingStatusChange) {
         pendingStatusChange?.let { newStatus ->
@@ -187,7 +197,7 @@ fun WorkDetailScreen(
             pendingStatusChange = null
         }
     }
-    
+
     // Handle pending series type changes asynchronously
     LaunchedEffect(pendingSeriesTypeChange) {
         pendingSeriesTypeChange?.let { newSeriesType ->
@@ -198,7 +208,7 @@ fun WorkDetailScreen(
             pendingSeriesTypeChange = null
         }
     }
-    
+
     // Handle pending manga type changes asynchronously
     LaunchedEffect(pendingMangaTypeChange) {
         pendingMangaTypeChange?.let { newMangaType ->
@@ -338,7 +348,7 @@ fun WorkDetailScreen(
             )
         )
 
-        
+
         items.add(
             EditInfoItem(
                 key = "dateRead",
@@ -387,12 +397,14 @@ fun WorkDetailScreen(
             .fillMaxSize()
             // Фон рисуется на уровне `LibraryScreen` (обложка + градиент + фон темы),
             // поэтому здесь оставляем прозрачным, чтобы не перекрывать его.
-            .background(Color.Transparent)
+            .background(Color.Transparent),
+        contentAlignment = Alignment.TopCenter
     ) {
         // Main scrollable content
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .widthIn(max = 720.dp)
                 .padding(horizontal = 16.dp)
                 .verticalScroll(scrollState),
             // Немного уменьшаем вертикальные отступы между блоками,
@@ -829,7 +841,7 @@ fun WorkDetailScreen(
                 val progressFraction = clampedProgress.toFloat() / totalUnits.toFloat()
                 val progressPercent = ((progressFraction * 100f).toInt()).coerceIn(0, 100)
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // Custom progress bar to avoid visual split into two segments
                 Box(
@@ -955,8 +967,8 @@ fun WorkDetailScreen(
                 }
             }
 
-            // Bottom padding so the last row (progress text / etc.) is never hidden by bottom nav
-            Spacer(modifier = Modifier.height(8.dp))
+            // Bottom padding so all content can scroll cleanly
+            Spacer(modifier = Modifier.height(115.dp))
 
         }
 
@@ -996,7 +1008,7 @@ fun WorkDetailScreen(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .padding(bottom = 0.dp, start = 16.dp, end = 16.dp)
+                        .padding(bottom = 110.dp, start = 12.dp, end = 12.dp)
                         .clickable(
                             indication = null,
                             interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -1010,6 +1022,8 @@ fun WorkDetailScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(max = 400.dp)
+                            .verticalScroll(rememberScrollState())
                             .padding(horizontal = 20.dp, vertical = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -1562,8 +1576,10 @@ private fun EditUnitProgressFieldRow(
     var completedText by remember(safeIndex) {
         mutableStateOf(formatEditableUnitNumber(currentUnit.completed, emptyAsZero = true))
     }
+    var completedFieldFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(safeIndex, currentUnit.completed) {
+        if (completedFieldFocused) return@LaunchedEffect
         val parsed = completedText.trim().toDoubleOrNull() ?: 0.0
         if (parsed != currentUnit.completed) {
             completedText = formatEditableUnitNumber(currentUnit.completed, emptyAsZero = true)
@@ -1783,7 +1799,9 @@ private fun EditUnitProgressFieldRow(
                     )
                 },
                 label = { Text(progressLabel, fontSize = 13.5.sp) },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { completedFieldFocused = it.isFocused },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = fieldColors,
