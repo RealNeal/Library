@@ -338,7 +338,5 @@ object ActivityStatisticsFormat {
             )
         }
 
-    private fun formatNum(value: Double): String =
-        if (value % 1.0 == 0.0) value.roundToInt().toString()
-        else value.toString().trimEnd('0').trimEnd('.')
+    private fun formatNum(value: Double): String = kotlin.math.round(value).toLong().toString()
 }

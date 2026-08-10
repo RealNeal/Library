@@ -1,5 +1,7 @@
 package com.rn.library.ui.screens
 
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -21,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -124,6 +127,7 @@ fun ProfileScreen(
     // Режим отображения произведений в вкладках: список (false) или блоки (true)
     isGridView: Boolean = false,
     onGridViewChange: (Boolean) -> Unit = {},
+    works: List<Work> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     val strings = LocalStrings.current
@@ -139,9 +143,20 @@ fun ProfileScreen(
         }
     val context = LocalContext.current
     val repository = remember { WorkRepository(context) }
-    var works by remember { mutableStateOf(repository.getAllWorks()) }
+    var localWorks by remember { mutableStateOf(works) }
+
+    LaunchedEffect(works) {
+        if (works.isNotEmpty()) {
+            localWorks = works
+        }
+    }
+
     var activityStatsEpoch by remember { mutableIntStateOf(0) }
-    val activityEvents = remember(works, activityStatsEpoch) { repository.loadActivityEvents() }
+    var activityEvents by remember { mutableStateOf<List<ActivityDeltaEvent>>(emptyList()) }
+
+    LaunchedEffect(localWorks, activityStatsEpoch) {
+        activityEvents = withContext(Dispatchers.IO) { repository.loadActivityEvents() }
+    }
 
     var showSettings by remember { mutableStateOf(false) }
     var showGuide by remember { mutableStateOf(false) }
@@ -181,7 +196,7 @@ fun ProfileScreen(
                 }
                 Triple(successCount, uris.size, failed)
             }
-            works = repository.getAllWorks()
+            localWorks = repository.getAllWorks()
             onWorksUpdatedState.value()
             val msg = if (ok == 0 && failedNames.isNotEmpty()) {
                 val preview = failedNames.take(2).joinToString(", ")
@@ -232,7 +247,8 @@ fun ProfileScreen(
                     seriesCoversFolder = strings.seriesCoversFolder,
                 )
             }
-            works = repository.getAllWorks()
+            val updated = repository.getAllWorks()
+            localWorks = updated
             activityStatsEpoch++
             onWorksUpdatedState.value()
             val msg = if (ok == 0 && failedNames.isNotEmpty()) {
@@ -270,10 +286,11 @@ fun ProfileScreen(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxSize()
+                .widthIn(max = 720.dp)
                 .background(mainBackgroundColor)
                 .verticalScroll(scrollState)
                 .padding(16.dp),
@@ -281,7 +298,7 @@ fun ProfileScreen(
         ) {
             // Statistics Card
             StatisticsCard(
-                works = works,
+                works = localWorks,
                 activityEvents = activityEvents,
                 titleColorBetween = titleColorBetween,
                 currentTheme = currentTheme,
@@ -427,8 +444,11 @@ fun ProfileScreen(
                     modifier = Modifier.padding(16.dp)
                 )
             }
+
+            // Bottom spacer to ensure content scrolls cleanly
+            val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+            Spacer(modifier = Modifier.height(if (isLandscape) 16.dp else 100.dp))
         }
-        
         AnimatedVisibility(
             visible = showSettings,
             enter = fadeIn(animationSpec = tween(20)) + slideInVertically(

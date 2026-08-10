@@ -1,6 +1,9 @@
 package com.rn.library.ui.screens
 
+import android.content.res.Configuration
 import android.net.Uri
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -161,7 +164,17 @@ fun WorkDetailScreen(
     var statusMenuExpanded by remember { mutableStateOf(false) }
     var seriesTypeMenuExpanded by remember { mutableStateOf(false) }
     var mangaTypeMenuExpanded by remember { mutableStateOf(false) }
-    
+
+    // Handle system back button for inner popups and menus
+    androidx.activity.compose.BackHandler(enabled = otherTitlesExpanded) {
+        otherTitlesExpanded = false
+    }
+    androidx.activity.compose.BackHandler(enabled = statusMenuExpanded || seriesTypeMenuExpanded || mangaTypeMenuExpanded) {
+        statusMenuExpanded = false
+        seriesTypeMenuExpanded = false
+        mangaTypeMenuExpanded = false
+    }
+
     // Pending changes to apply asynchronously
     var pendingStatusChange by remember { mutableStateOf<WorkStatus?>(null) }
     var pendingSeriesTypeChange by remember { mutableStateOf<SeriesType?>(null) }
@@ -176,7 +189,7 @@ fun WorkDetailScreen(
     LaunchedEffect(work) {
         temporaryWork = work
     }
-    
+
     // Handle pending status changes asynchronously
     LaunchedEffect(pendingStatusChange) {
         pendingStatusChange?.let { newStatus ->
@@ -187,7 +200,7 @@ fun WorkDetailScreen(
             pendingStatusChange = null
         }
     }
-    
+
     // Handle pending series type changes asynchronously
     LaunchedEffect(pendingSeriesTypeChange) {
         pendingSeriesTypeChange?.let { newSeriesType ->
@@ -198,7 +211,7 @@ fun WorkDetailScreen(
             pendingSeriesTypeChange = null
         }
     }
-    
+
     // Handle pending manga type changes asynchronously
     LaunchedEffect(pendingMangaTypeChange) {
         pendingMangaTypeChange?.let { newMangaType ->
@@ -338,7 +351,7 @@ fun WorkDetailScreen(
             )
         )
 
-        
+
         items.add(
             EditInfoItem(
                 key = "dateRead",
@@ -387,12 +400,14 @@ fun WorkDetailScreen(
             .fillMaxSize()
             // Фон рисуется на уровне `LibraryScreen` (обложка + градиент + фон темы),
             // поэтому здесь оставляем прозрачным, чтобы не перекрывать его.
-            .background(Color.Transparent)
+            .background(Color.Transparent),
+        contentAlignment = Alignment.TopCenter
     ) {
         // Main scrollable content
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .widthIn(max = 720.dp)
                 .padding(horizontal = 16.dp)
                 .verticalScroll(scrollState),
             // Немного уменьшаем вертикальные отступы между блоками,
@@ -829,7 +844,7 @@ fun WorkDetailScreen(
                 val progressFraction = clampedProgress.toFloat() / totalUnits.toFloat()
                 val progressPercent = ((progressFraction * 100f).toInt()).coerceIn(0, 100)
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // Custom progress bar to avoid visual split into two segments
                 Box(
@@ -881,51 +896,63 @@ fun WorkDetailScreen(
                 }
             }
 
-            @Composable
-            fun LinkBlock(title: String, rawLink: String) {
-                // Очищаем ссылку от возможных обратных слэшей, которые могли появиться при сохранении
-                val cleanLink = rawLink.replace("\\:", ":").replace("\\/", "/")
-                if (cleanLink.isBlank()) return
+            // Unified Links Block (All links in one card)
+            val allLinks = remember(work.link, work.link2) {
+                val list = mutableListOf<String>()
+                work.link?.takeIf { it.isNotBlank() }?.split("\n", ";")?.map { it.trim() }?.filter { it.isNotEmpty() }?.let { list.addAll(it) }
+                work.link2?.takeIf { it.isNotBlank() }?.split("\n", ";")?.map { it.trim() }?.filter { it.isNotEmpty() }?.let { list.addAll(it) }
+                list.map { it.replace("\\:", ":").replace("\\/", "/") }.distinct()
+            }
 
+            if (allLinks.isNotEmpty()) {
                 Surface(
                     color = mainBackgroundColor,
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .clickable(
-                            indication = null,
-                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                        ) {
-                            LinkOpenHelper.openInExternalViewer(context, cleanLink)
-                        }
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(
-                            text = title,
-                            color = if (currentTheme == AppTheme.DARK) Color.White else Color.Black,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = cleanLink,
-                            color = Color(0xFF2196F3), // Blue color
-                            fontSize = 14.sp,
-                            textDecoration = TextDecoration.Underline
-                        )
+                        allLinks.forEachIndexed { index, linkUrl ->
+                            if (index > 0) {
+                                HorizontalDivider(
+                                    color = iconTextColor.copy(alpha = 0.15f),
+                                    thickness = 1.dp
+                                )
+                            }
+                            val labelText = if (allLinks.size == 1) {
+                                strings.links.takeIf { it.isNotBlank() } ?: strings.link1.replace(" 1", "")
+                            } else {
+                                "${strings.link1.replace(" 1", "")} ${index + 1}"
+                            }
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = labelText,
+                                    color = if (currentTheme == AppTheme.DARK) Color.White else Color.Black,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = linkUrl,
+                                    color = Color(0xFF2196F3),
+                                    fontSize = 14.sp,
+                                    textDecoration = TextDecoration.Underline,
+                                    modifier = Modifier.clickable(
+                                        indication = null,
+                                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                                    ) {
+                                        LinkOpenHelper.openInExternalViewer(context, linkUrl)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
-            }
-
-            // Link fields (up to two separate links)
-            work.link?.takeIf { it.isNotBlank() }?.let { link ->
-                LinkBlock(strings.link1, link)
-            }
-            work.link2?.takeIf { it.isNotBlank() }?.let { link ->
-                LinkBlock(strings.link2, link)
             }
 
             // Note (at the very bottom)
@@ -955,8 +982,8 @@ fun WorkDetailScreen(
                 }
             }
 
-            // Bottom padding so the last row (progress text / etc.) is never hidden by bottom nav
-            Spacer(modifier = Modifier.height(8.dp))
+            // Bottom padding so all content can scroll cleanly
+            Spacer(modifier = Modifier.height(115.dp))
 
         }
 
@@ -996,7 +1023,7 @@ fun WorkDetailScreen(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .padding(bottom = 0.dp, start = 16.dp, end = 16.dp)
+                        .padding(bottom = 110.dp, start = 12.dp, end = 12.dp)
                         .clickable(
                             indication = null,
                             interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -1010,6 +1037,8 @@ fun WorkDetailScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(max = 400.dp)
+                            .verticalScroll(rememberScrollState())
                             .padding(horizontal = 20.dp, vertical = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -1195,23 +1224,38 @@ private fun EditInfoDialog(
         else -> ""
     }
 
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val editDialogScrollState = rememberScrollState()
-    Dialog(onDismissRequest = onDismiss) {
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !isLandscape)
+    ) {
         Surface(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                .then(
+                    if (isLandscape) {
+                        Modifier
+                            .fillMaxWidth(0.95f)
+                            .widthIn(max = 860.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    } else {
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    }
+                ),
             shape = RoundedCornerShape(16.dp),
             color = mainBackgroundColor
         ) {
             Column(
                 modifier = Modifier
-                    .padding(16.dp)
+                    .padding(if (isLandscape) 10.dp else 16.dp)
                     .verticalScroll(editDialogScrollState),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(if (isLandscape) 6.dp else 16.dp)
             ) {
-                // Поля для редактирования
-                tempValues.forEachIndexed { index, item ->
+                @Composable
+                fun RenderEditFieldItem(index: Int, item: EditInfoItem) {
                     if (item.key == "progress" && unitProgressEdits.isNotEmpty()) {
                         EditUnitProgressFieldRow(
                             unitPrefixLabel = unitPrefixLabel,
@@ -1227,7 +1271,7 @@ private fun EditInfoDialog(
                             fieldTextColor = fieldTextColor,
                             iconTextColor = iconTextColor,
                         )
-                        return@forEachIndexed
+                        return
                     }
 
                     var textValue by remember(item.value) {
@@ -1245,7 +1289,7 @@ private fun EditInfoDialog(
                             label = { Text(item.label) },
                             placeholder = { Text(strings.rereadDatesPlaceholder) },
                             minLines = 1,
-                            maxLines = 5,
+                            maxLines = if (isLandscape) 2 else 5,
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = searchBarColor,
                                 unfocusedContainerColor = searchBarColor,
@@ -1259,7 +1303,6 @@ private fun EditInfoDialog(
                             parentScrollState = editDialogScrollState,
                         )
                     } else if (item.type == EditInfoType.DATE) {
-                        // Как в AddWorkScreen: только цифры (DDMMYYYY) + визуальная маска ДД.ММ.ГГГГ
                         OutlinedTextField(
                             value = textValue,
                             onValueChange = { newValue ->
@@ -1302,9 +1345,7 @@ private fun EditInfoDialog(
                                 OutlinedTextField(
                                     value = textValue,
                                     onValueChange = { newValue ->
-                                        // Allow digits and one decimal point
                                         val filtered = newValue.filter { it.isDigit() || it == '.' }
-                                        // Ensure only one decimal point
                                         val parts = filtered.split('.')
                                         val validValue = if (parts.size > 2) {
                                             parts[0] + "." + parts.drop(1).joinToString("")
@@ -1335,7 +1376,6 @@ private fun EditInfoDialog(
                                     onClick = {
                                         val current = textValue.toDoubleOrNull() ?: 0.0
                                         val newValue = (current + incrementStep).coerceAtLeast(0.0)
-                                        // Format: remove trailing zeros if whole number
                                         val asString = if (newValue % 1.0 == 0.0) {
                                             newValue.toInt().toString()
                                         } else {
@@ -1344,12 +1384,12 @@ private fun EditInfoDialog(
                                         textValue = asString
                                         tempValues[index] = item.copy(value = asString)
                                     },
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(if (isLandscape) 32.dp else 36.dp)
                                 ) {
                                     Text(
                                         text = "▲",
                                         color = fieldTextColor,
-                                        fontSize = 20.sp,
+                                        fontSize = if (isLandscape) 18.sp else 20.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -1358,7 +1398,6 @@ private fun EditInfoDialog(
                             OutlinedTextField(
                                 value = textValue,
                                 onValueChange = { newValue ->
-                                    // Валидация в зависимости от типа
                                     val filteredValue = when {
                                         item.key == "year" -> {
                                             val normalized = newValue.trimStart()
@@ -1394,19 +1433,80 @@ private fun EditInfoDialog(
                     }
                 }
 
+                if (!isLandscape) {
+                    tempValues.forEachIndexed { index, item ->
+                        RenderEditFieldItem(index, item)
+                    }
+                } else {
+                    val rowGroups = remember(tempValues) {
+                        val groups = mutableListOf<List<Pair<Int, EditInfoItem>>>()
+                        var currentPair = mutableListOf<Pair<Int, EditInfoItem>>()
+
+                        tempValues.forEachIndexed { index, item ->
+                            val isFullWidth = (item.key == "progress" && unitProgressEdits.isNotEmpty()) ||
+                                    item.key == "note" || item.key == "description"
+
+                            if (isFullWidth) {
+                                if (currentPair.isNotEmpty()) {
+                                    groups.add(currentPair)
+                                    currentPair = mutableListOf()
+                                }
+                                groups.add(listOf(Pair(index, item)))
+                            } else {
+                                currentPair.add(Pair(index, item))
+                                if (currentPair.size == 2) {
+                                    groups.add(currentPair)
+                                    currentPair = mutableListOf()
+                                }
+                            }
+                        }
+                        if (currentPair.isNotEmpty()) {
+                            groups.add(currentPair)
+                        }
+                        groups
+                    }
+
+                    rowGroups.forEach { group ->
+                        if (group.size == 1) {
+                            RenderEditFieldItem(group[0].first, group[0].second)
+                        } else if (group.size == 2) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    RenderEditFieldItem(group[0].first, group[0].second)
+                                }
+                                Box(modifier = Modifier.weight(1f)) {
+                                    RenderEditFieldItem(group[1].first, group[1].second)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Кнопки
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = if (isLandscape) 2.dp else 0.dp),
+                    horizontalArrangement = if (isLandscape) Arrangement.Center else Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(
-                        onClick = onDismiss
+                        onClick = onDismiss,
+                        modifier = if (isLandscape) Modifier.height(44.dp).padding(horizontal = 16.dp) else Modifier
                     ) {
-                        Text(strings.cancel, color = iconTextColor)
+                        Text(
+                            text = strings.cancel,
+                            color = iconTextColor,
+                            fontSize = if (isLandscape) 16.sp else 14.sp,
+                            fontWeight = if (isLandscape) FontWeight.Bold else FontWeight.Normal
+                        )
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(if (isLandscape) 24.dp else 8.dp))
 
                     Button(
                         onClick = {
@@ -1510,9 +1610,14 @@ private fun EditInfoDialog(
                             }
 
                             onSave(updatedWork)
-                        }
+                        },
+                        modifier = if (isLandscape) Modifier.height(44.dp).padding(horizontal = 24.dp) else Modifier
                     ) {
-                        Text(strings.save)
+                        Text(
+                            text = strings.save,
+                            fontSize = if (isLandscape) 16.sp else 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
@@ -1562,8 +1667,10 @@ private fun EditUnitProgressFieldRow(
     var completedText by remember(safeIndex) {
         mutableStateOf(formatEditableUnitNumber(currentUnit.completed, emptyAsZero = true))
     }
+    var completedFieldFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(safeIndex, currentUnit.completed) {
+        if (completedFieldFocused) return@LaunchedEffect
         val parsed = completedText.trim().toDoubleOrNull() ?: 0.0
         if (parsed != currentUnit.completed) {
             completedText = formatEditableUnitNumber(currentUnit.completed, emptyAsZero = true)
@@ -1783,7 +1890,9 @@ private fun EditUnitProgressFieldRow(
                     )
                 },
                 label = { Text(progressLabel, fontSize = 13.5.sp) },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { completedFieldFocused = it.isFocused },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = fieldColors,

@@ -115,6 +115,8 @@ data class Strings(
     val repeats: String,
     val link1: String,
     val link2: String,
+    val links: String,
+    val linksPlaceholder: String,
     val noteLabel: String,
     val descriptionEmpty: String,
     val alternativeTitles: String,

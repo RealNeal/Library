@@ -116,6 +116,8 @@ object LocalizedStrings {
         repeats = "Reread/Rewatch dates",
         link1 = "Link 1",
         link2 = "Link 2",
+        links = "Links",
+        linksPlaceholder = "Paste links (one per line)",
         noteLabel = "Note",
         descriptionEmpty = "No description",
         alternativeTitles = "Alternative titles",
@@ -243,7 +245,7 @@ object LocalizedStrings {
         editWork = "Редактировать",
         allTypes = "Все",
         chaptersView = "Главы",
-        volumesView = "Тома",
+        volumesView = "Томов",
         episodesView = "Серии",
         seriesView = "Серии",
         seasonsView = "Сезоны",
@@ -265,8 +267,11 @@ object LocalizedStrings {
         datePlaceholder = "ДД.ММ.ГГГГ",
         rereadDatesPlaceholder = "ДД.ММ.ГГГГ, по одной в строке",
         repeats = "Даты перепрочтения/перепросмотра",
+        otherTitlesPlaceholder = "Другие названия, каждое с новой строки",
         link1 = "Ссылка 1",
         link2 = "Ссылка 2",
+        links = "Ссылки",
+        linksPlaceholder = "Вставьте ссылки (каждая с новой строки)",
         linkActionRead = "Читать",
         linkActionWatch = "Смотреть",
         editInfoButton = "Редактировать",
@@ -330,4 +335,3 @@ object LocalizedStrings {
         seasonUnitPrefix = "Сезон"
     )
 }
-

@@ -2,35 +2,16 @@ package com.rn.library.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
-<<<<<<< Updated upstream
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
-=======
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
->>>>>>> Stashed changes
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.relocation.BringIntoViewResponder
 import androidx.compose.foundation.relocation.bringIntoViewResponder
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.TextFieldDefaults
-<<<<<<< Updated upstream
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.unit.Dp
-=======
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
@@ -45,31 +26,22 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntSize
->>>>>>> Stashed changes
 
 /**
- * Многострочное поле с внутренней прокруткой: не сдвигает родительский скролл при фокусе
- * и полностью изолирует скролл внутри себя, не передавая оверскролл форме.
+ * Многострочное поле с внутренней прокруткой: изолирует свайпы внутри себя,
+ * не передавая оверскролл родительской форме.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ScrollIsolatedMultilineField(
     value: String,
     onValueChange: (String) -> Unit,
-    onFocusChanged: (Boolean) -> Unit,
     label: @Composable () -> Unit,
     modifier: Modifier = Modifier,
-    minHeight: Dp,
-    maxHeight: Dp,
+    minLines: Int = 1,
     maxLines: Int = Int.MAX_VALUE,
     colors: TextFieldColors = TextFieldDefaults.colors(),
     placeholder: @Composable (() -> Unit)? = null,
-<<<<<<< Updated upstream
-    parentScrollState: ScrollState? = null, // Оставлен для обратной совместимости вызова
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isFocused by interactionSource.collectIsFocusedAsState()
-=======
     parentScrollState: ScrollState? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -87,17 +59,10 @@ fun ScrollIsolatedMultilineField(
                 }
         }
     }
->>>>>>> Stashed changes
 
-    // Уведомляем форму об изменении фокуса поля
-    LaunchedEffect(isFocused) {
-        onFocusChanged(isFocused)
+    var textFieldValue by remember {
+        mutableStateOf(TextFieldValue(text = value))
     }
-<<<<<<< Updated upstream
-
-    // Изоляция Nested Scroll: перехватываем прокрутку на этапе OnPreScroll
-    val fieldNestedScrollConnection = remember(isFocused) {
-=======
     SideEffect {
         if (textFieldValue.text != value) {
             val selection = textFieldValue.selection
@@ -114,50 +79,17 @@ fun ScrollIsolatedMultilineField(
     // Изоляция ручного скролла: поглощаем весь "остаточный" скролл,
     // чтобы он не дергал родительский ScrollState (экрана), когда текст кончается.
     val fieldNestedScrollConnection = remember {
->>>>>>> Stashed changes
         object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                // Если поле в фокусе, полностью поглощаем вертикальный дельта-скролл,
-                // не позволяя родительской Column двигаться.
-                return if (isFocused) available else Offset.Zero
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                // Возвращаем available, говоря системе "мы сами обработали этот остаток"
+                return available
             }
         }
     }
-
-    // Перехватчик BringIntoView: предотвращает прыжки экрана вверх при установке курсора
-    val ignoreBringIntoViewResponder = remember {
-        object : BringIntoViewResponder {
-            override fun calculateRectForParent(localRect: Rect): Rect {
-                // Возвращаем пустой Rect, чтобы родительский контейнер думал, что поле двигать не нужно
-                return Rect.Zero
-            }
-
-            // Название метода и сигнатура приведены в соответствие с твоей версией Compose
-            override suspend fun bringChildIntoView(localRect: () -> Rect?) {
-                // Оставляем тело пустым, тем самым блокируя автоматический скролл системы к полю
-            }
-        }
-    }
-<<<<<<< Updated upstream
-
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = label,
-        placeholder = placeholder,
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = minHeight, max = maxHeight)
-            // 1. Блокируем системный прыжок вверх при фокусе, передавая наш Responder в качестве аргумента
-            .bringIntoViewResponder(ignoreBringIntoViewResponder)
-            // 2. Блокируем передачу скролла основной форме
-            .nestedScroll(fieldNestedScrollConnection),
-        singleLine = false,
-        maxLines = maxLines,
-        interactionSource = interactionSource,
-        colors = colors
-    )
-=======
     val bringIntoViewResponder = remember {
         object : BringIntoViewResponder {
             override suspend fun bringChildIntoView(localRect: () -> Rect?) {
@@ -225,12 +157,10 @@ fun ScrollIsolatedMultilineField(
             colors = colors,
         )
     }
->>>>>>> Stashed changes
 }
 
 /**
- * Больше не выполняет работу, так как изоляция перенесена на уровень onPreScroll самого поля.
- * Оставлена пустой, чтобы не ломать вызовы и компиляцию в файле AddWorkScreen.kt.
+ * Заглушка, оставленная чтобы не ломать вызовы в других файлах (например, AddWorkScreen.kt).
  */
 @Composable
 fun rememberBlockParentScrollOnFocusedField(blockParentScroll: Boolean): NestedScrollConnection {

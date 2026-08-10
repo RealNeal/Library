@@ -13,8 +13,8 @@ android {
         applicationId = "com.rn.library"
         minSdk = 30
         targetSdk = 36
-        versionCode = 10
-        versionName = "2.0"
+        versionCode = 12
+        versionName = "2.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

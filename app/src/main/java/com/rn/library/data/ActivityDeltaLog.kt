@@ -19,6 +19,93 @@ class ActivityDeltaLog(context: Context) {
         persistEvents(events)
     }
 
+    fun deductEventProgress(
+        workId: String,
+        readDeduct: Double,
+        watchDeduct: Double,
+        fallbackDate: LocalDate
+    ) {
+        if (readDeduct <= 0.0 && watchDeduct <= 0.0) return
+        val events = loadEvents().toMutableList()
+
+        if (readDeduct > 0.0) {
+            var remaining = readDeduct
+            val matchingIndices = events.mapIndexedNotNull { index, event ->
+                if (event.workId == workId && event.readDelta > 0.0) index else null
+            }.sortedByDescending { events[it].date }
+
+            for (idx in matchingIndices) {
+                val event = events[idx]
+                if (event.readDelta >= remaining) {
+                    events[idx] = event.copy(readDelta = event.readDelta - remaining)
+                    remaining = 0.0
+                    break
+                } else {
+                    remaining -= event.readDelta
+                    events[idx] = event.copy(readDelta = 0.0)
+                }
+            }
+
+            if (remaining > 0.0) {
+                val importedIndices = events.mapIndexedNotNull { index, event ->
+                    if (event.workId == ActivityStatisticsFormat.IMPORT_WORK_ID && event.readDelta > 0.0) index else null
+                }.sortedByDescending { events[it].date }
+
+                for (idx in importedIndices) {
+                    val event = events[idx]
+                    if (event.readDelta >= remaining) {
+                        events[idx] = event.copy(readDelta = event.readDelta - remaining)
+                        remaining = 0.0
+                        break
+                    } else {
+                        remaining -= event.readDelta
+                        events[idx] = event.copy(readDelta = 0.0)
+                    }
+                }
+            }
+        }
+
+        if (watchDeduct > 0.0) {
+            var remaining = watchDeduct
+            val matchingIndices = events.mapIndexedNotNull { index, event ->
+                if (event.workId == workId && event.watchDelta > 0.0) index else null
+            }.sortedByDescending { events[it].date }
+
+            for (idx in matchingIndices) {
+                val event = events[idx]
+                if (event.watchDelta >= remaining) {
+                    events[idx] = event.copy(watchDelta = event.watchDelta - remaining)
+                    remaining = 0.0
+                    break
+                } else {
+                    remaining -= event.watchDelta
+                    events[idx] = event.copy(watchDelta = 0.0)
+                }
+            }
+
+            if (remaining > 0.0) {
+                val importedIndices = events.mapIndexedNotNull { index, event ->
+                    if (event.workId == ActivityStatisticsFormat.IMPORT_WORK_ID && event.watchDelta > 0.0) index else null
+                }.sortedByDescending { events[it].date }
+
+                for (idx in importedIndices) {
+                    val event = events[idx]
+                    if (event.watchDelta >= remaining) {
+                        events[idx] = event.copy(watchDelta = event.watchDelta - remaining)
+                        remaining = 0.0
+                        break
+                    } else {
+                        remaining -= event.watchDelta
+                        events[idx] = event.copy(watchDelta = 0.0)
+                    }
+                }
+            }
+        }
+
+        val cleaned = events.filterNot { it.readDelta <= 0.0 && it.watchDelta <= 0.0 }
+        persistEvents(cleaned)
+    }
+
     fun loadEvents(): List<ActivityDeltaEvent> {
         return prefs.getStringSet(KEY_EVENTS, emptySet()).orEmpty()
             .mapNotNull { decode(it) }

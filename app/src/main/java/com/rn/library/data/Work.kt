@@ -87,11 +87,22 @@ data class UnitProgress(
 fun String.toCoverImageData(): Any =
     if (startsWith("/")) File(this) else this
 
-/** Все уникальные пути обложек произведения (основная + дополнительные). */
-fun Work.allCoverPaths(): List<String> = buildList {
-    coverPath?.takeIf { it.isNotBlank() }?.let { add(it) }
-    coverPaths.filter { it.isNotBlank() }.forEach { add(it) }
-}.distinct()
+/**
+ * Все обложки в порядке добавления.
+ * Новый формат: все пути в [coverPaths], [coverPath] — выбранная «главная» для списка.
+ * Старый формат: [coverPath] первая, [coverPaths] — остальные без дубликата главной.
+ */
+fun Work.allCoverPaths(): List<String> {
+    val ordered = coverPaths.filter { it.isNotBlank() }
+    val primary = coverPath?.takeIf { it.isNotBlank() }
+    return when {
+        ordered.isNotEmpty() -> {
+            if (primary != null && primary !in ordered) listOf(primary) + ordered else ordered.distinct()
+        }
+        primary != null -> listOf(primary)
+        else -> emptyList()
+    }
+}
 
 /**
  * Случайная обложка; не повторяет [lastCover], если обложек больше двух.
