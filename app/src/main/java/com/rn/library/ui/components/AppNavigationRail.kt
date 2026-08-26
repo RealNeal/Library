@@ -11,10 +11,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.rn.library.ui.LocalStrings
 import com.rn.library.ui.screens.AppTheme
 import com.rn.library.ui.theme.BottomPanelIconColor
 import com.rn.library.ui.theme.BottomPanelLabelColor
@@ -34,7 +34,6 @@ fun AppNavigationRail(
     tvSeriesEnabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val strings = LocalStrings.current
     val panelColor = PanelColor()
     val items = buildList {
         if (booksEnabled) add(NavigationItem.Books)
@@ -73,7 +72,7 @@ fun AppNavigationRail(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             items.forEach { item ->
-                val label = item.labelKey(strings)
+                val label = stringResource(item.labelRes)
                 val isSelected = item == selectedItem
                 NavigationRailItem(
                     selected = isSelected,

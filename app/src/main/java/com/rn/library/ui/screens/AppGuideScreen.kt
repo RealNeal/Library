@@ -10,8 +10,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.rn.library.ui.LocalStrings
+import com.rn.library.R
 import com.rn.library.ui.theme.MainBackgroundColor
 import com.rn.library.ui.theme.TitleColorBetween
 
@@ -20,7 +21,6 @@ fun AppGuideScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val strings = LocalStrings.current
     val bg = MainBackgroundColor()
     val text = TitleColorBetween()
 
@@ -38,11 +38,10 @@ fun AppGuideScreen(
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = text)
             }
             Spacer(Modifier.width(8.dp))
-            Text(text = strings.guideTitle, color = text)
+            Text(text = stringResource(R.string.guide_title), color = text)
         }
 
         Spacer(Modifier.height(16.dp))
-        Text(text = strings.guideBody, color = text)
+        Text(text = stringResource(R.string.guide_body), color = text)
     }
 }
-

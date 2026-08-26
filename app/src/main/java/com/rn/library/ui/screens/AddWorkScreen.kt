@@ -34,14 +34,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
+import com.rn.library.R
 import com.rn.library.data.*
-import com.rn.library.ui.LocalStrings
 import com.rn.library.ui.components.ScrollIsolatedMultilineField
 import com.rn.library.ui.components.UnitProgressEditor
 import com.rn.library.ui.components.buildDefaultUnits
@@ -103,7 +104,6 @@ fun AddWorkScreen(
     work: Work? = null,
     modifier: Modifier = Modifier,
 ) {
-    val strings = LocalStrings.current
     val bg = MainBackgroundColor()
     val fieldBg = SearchBarColor()
     val text = TitleColorBetween()
@@ -275,25 +275,28 @@ fun AddWorkScreen(
     }
 
     // Получаем правильные опции статуса в зависимости от типа
-    fun getStatusOptions(): List<Pair<WorkStatus, String>> {
-        return when (type) {
-            WorkType.BOOK, WorkType.MANGA -> listOf(
-                WorkStatus.IN_PLANS to strings.inPlans,
-                WorkStatus.READING to strings.reading,
-                WorkStatus.READ to strings.read,
-                WorkStatus.ABANDONED to strings.abandoned
-            )
-            WorkType.ANIME, WorkType.SERIES -> listOf(
-                WorkStatus.IN_PLANS to strings.inPlans,
-                WorkStatus.WATCHING to strings.watching,
-                WorkStatus.WATCHED to strings.watched,
-                WorkStatus.ABANDONED to strings.abandoned
-            )
-        }
+    val statusOptions = when (type) {
+        WorkType.BOOK, WorkType.MANGA -> listOf(
+            WorkStatus.IN_PLANS to stringResource(R.string.in_plans),
+            WorkStatus.READING to stringResource(R.string.reading),
+            WorkStatus.READ to stringResource(R.string.read),
+            WorkStatus.ABANDONED to stringResource(R.string.abandoned)
+        )
+        WorkType.ANIME, WorkType.SERIES -> listOf(
+            WorkStatus.IN_PLANS to stringResource(R.string.in_plans),
+            WorkStatus.WATCHING to stringResource(R.string.watching),
+            WorkStatus.WATCHED to stringResource(R.string.watched),
+            WorkStatus.ABANDONED to stringResource(R.string.abandoned)
+        )
     }
 
     // Проверяем, нужно ли показывать дату прочтения
     val showDateRead = status in listOf(WorkStatus.READ, WorkStatus.WATCHED, WorkStatus.ABANDONED)
+
+    val seasonWinter = stringResource(R.string.winter)
+    val seasonSpring = stringResource(R.string.spring)
+    val seasonSummer = stringResource(R.string.summer)
+    val seasonFall = stringResource(R.string.fall)
 
     Box(
         modifier = modifier
@@ -320,7 +323,7 @@ fun AddWorkScreen(
             }
             Spacer(Modifier.width(8.dp))
             Text(
-                text = if (work == null) strings.addWork else strings.editWork,
+                text = if (work == null) stringResource(R.string.add_work) else stringResource(R.string.edit_work),
                 color = text,
                 style = MaterialTheme.typography.titleLarge
             )
@@ -339,8 +342,8 @@ fun AddWorkScreen(
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text(strings.title) },
-                placeholder = { Text(strings.titlePlaceholder) },
+                label = { Text(stringResource(R.string.title)) },
+                placeholder = { Text(stringResource(R.string.title_placeholder)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = fieldColors
@@ -350,8 +353,8 @@ fun AddWorkScreen(
             ScrollIsolatedMultilineField(
                 value = alternativeTitles,
                 onValueChange = { alternativeTitles = it },
-                label = { Text(strings.alternativeTitles) },
-                placeholder = { Text(strings.otherTitlesPlaceholder) },
+                label = { Text(stringResource(R.string.alternative_titles)) },
+                placeholder = { Text(stringResource(R.string.other_titles_placeholder)) },
                 minLines = 1,
                 maxLines = 3,
                 colors = fieldColors,
@@ -361,7 +364,7 @@ fun AddWorkScreen(
             ScrollIsolatedMultilineField(
                 value = description,
                 onValueChange = { description = it },
-                label = { Text(strings.description) },
+                label = { Text(stringResource(R.string.description)) },
                 minLines = 5,
                 maxLines = 11,
                 colors = fieldColors,
@@ -370,7 +373,7 @@ fun AddWorkScreen(
 
             // Тип произведения
             CustomDropdown(
-                label = strings.type,
+                label = stringResource(R.string.type),
                 value = when (type) {
                     WorkType.BOOK -> "Книга"
                     WorkType.ANIME -> "Аниме"
@@ -390,7 +393,7 @@ fun AddWorkScreen(
                     }
                     typeDropdownExpanded = false
                     // Сбрасываем статус если он не соответствует типу
-                    val validStatuses = getStatusOptions().map { it.first }
+                    val validStatuses = statusOptions.map { it.first }
                     if (status !in validStatuses) {
                         status = WorkStatus.IN_PLANS
                     }
@@ -407,7 +410,7 @@ fun AddWorkScreen(
                         fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing))
             ) {
                 CustomDropdown(
-                    label = strings.mangaType,
+                    label = stringResource(R.string.manga_type),
                     value = when (mangaType) {
                         MangaType.MANGA -> "Манга"
                         MangaType.MANHWA -> "Манхва"
@@ -437,7 +440,7 @@ fun AddWorkScreen(
                         fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing))
             ) {
                 CustomDropdown(
-                    label = strings.tvSeriesType,
+                    label = stringResource(R.string.tv_series_type),
                     value = when (seriesType) {
                         SeriesType.TV_SERIES -> "Сериал"
                         SeriesType.FILM -> "Фильм"
@@ -463,8 +466,8 @@ fun AddWorkScreen(
 
             // Тома/Сезоны
             val volumesLabel = when (type) {
-                WorkType.BOOK, WorkType.MANGA -> strings.volumes
-                WorkType.SERIES -> strings.seasons
+                WorkType.BOOK, WorkType.MANGA -> stringResource(R.string.volumes)
+                WorkType.SERIES -> stringResource(R.string.seasons)
                 WorkType.ANIME -> "" // Для аниме тома не используются
             }
             val volumesValue = when (type) {
@@ -501,9 +504,9 @@ fun AddWorkScreen(
 
             // Главы/Серии
             val chaptersLabel = when (type) {
-                WorkType.BOOK -> strings.chapters
-                WorkType.MANGA -> strings.chapters
-                WorkType.ANIME, WorkType.SERIES -> strings.episodes
+                WorkType.BOOK -> stringResource(R.string.chapters)
+                WorkType.MANGA -> stringResource(R.string.chapters)
+                WorkType.ANIME, WorkType.SERIES -> stringResource(R.string.episodes)
             }
             val chaptersValue = when (type) {
                 WorkType.BOOK -> bookChapters
@@ -534,6 +537,9 @@ fun AddWorkScreen(
                 WorkType.ANIME -> seasons.toIntOrNull()
             }
 
+            val volumeUnitPrefix = stringResource(R.string.volume_unit_prefix)
+            val seasonUnitPrefix = stringResource(R.string.season_unit_prefix)
+
             UnitProgressEditor(
                 enabled = useUnitProgress,
                 onEnabledChange = { enabled ->
@@ -542,8 +548,8 @@ fun AddWorkScreen(
                         unitProgressList = emptyList()
                     } else if (unitProgressList.isEmpty() && unitCountHint != null && unitCountHint > 0) {
                         val prefix = when (type) {
-                            WorkType.BOOK, WorkType.MANGA -> strings.volumeUnitPrefix
-                            WorkType.SERIES, WorkType.ANIME -> strings.seasonUnitPrefix
+                            WorkType.BOOK, WorkType.MANGA -> volumeUnitPrefix
+                            WorkType.SERIES, WorkType.ANIME -> seasonUnitPrefix
                         }
                         unitProgressList = buildDefaultUnits(unitCountHint, prefix)
                     }
@@ -557,8 +563,8 @@ fun AddWorkScreen(
             )
 
             val progressLabel = when (type) {
-                WorkType.BOOK, WorkType.MANGA -> strings.progressReadChapters
-                WorkType.ANIME, WorkType.SERIES -> strings.progressWatchedEpisodes
+                WorkType.BOOK, WorkType.MANGA -> stringResource(R.string.progress_read_chapters)
+                WorkType.ANIME, WorkType.SERIES -> stringResource(R.string.progress_watched_episodes)
             }
 
             OutlinedTextField(
@@ -574,7 +580,7 @@ fun AddWorkScreen(
             // Обложка
             Column {
                 Text(
-                    "${strings.cover} (${coverPaths.size}/10)",
+                    "${stringResource(R.string.cover)} (${coverPaths.size}/10)",
                     color = text,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -601,7 +607,7 @@ fun AddWorkScreen(
                         )
                     } else {
                         Text(
-                            strings.cover,
+                            stringResource(R.string.cover),
                             color = text.copy(alpha = 0.6f),
                             style = MaterialTheme.typography.bodyLarge
                         )
@@ -651,7 +657,7 @@ fun AddWorkScreen(
             OutlinedTextField(
                 value = country,
                 onValueChange = { country = it },
-                label = { Text(strings.country) },
+                label = { Text(stringResource(R.string.country)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = fieldColors
@@ -666,22 +672,22 @@ fun AddWorkScreen(
                         fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing))
             ) {
                 CustomDropdown(
-                    label = strings.animeSeason,
+                    label = stringResource(R.string.anime_season),
                     value = when (animeSeason) {
-                        AnimeSeason.SPRING -> strings.spring
-                        AnimeSeason.SUMMER -> strings.summer
-                        AnimeSeason.FALL -> strings.fall
-                        AnimeSeason.WINTER -> strings.winter
+                        AnimeSeason.SPRING -> seasonSpring
+                        AnimeSeason.SUMMER -> seasonSummer
+                        AnimeSeason.FALL -> seasonFall
+                        AnimeSeason.WINTER -> seasonWinter
                     },
-                    items = listOf(strings.winter, strings.spring, strings.summer, strings.fall),
+                    items = listOf(seasonWinter, seasonSpring, seasonSummer, seasonFall),
                     expanded = seasonDropdownExpanded,
                     onExpandedChange = { seasonDropdownExpanded = it },
                     onItemSelected = { selected ->
                         animeSeason = when (selected) {
-                            strings.winter -> AnimeSeason.WINTER
-                            strings.spring -> AnimeSeason.SPRING
-                            strings.summer -> AnimeSeason.SUMMER
-                            strings.fall -> AnimeSeason.FALL
+                            seasonWinter -> AnimeSeason.WINTER
+                            seasonSpring -> AnimeSeason.SPRING
+                            seasonSummer -> AnimeSeason.SUMMER
+                            seasonFall -> AnimeSeason.FALL
                             else -> AnimeSeason.SPRING
                         }
                         seasonDropdownExpanded = false
@@ -703,7 +709,7 @@ fun AddWorkScreen(
                         year = input
                     }
                 },
-                label = { Text(strings.year) },
+                label = { Text(stringResource(R.string.year)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
@@ -713,20 +719,20 @@ fun AddWorkScreen(
 
             // Статус
             CustomDropdown(
-                label = strings.status,
+                label = stringResource(R.string.status),
                 value = when (status) {
-                    WorkStatus.IN_PLANS -> strings.inPlans
-                    WorkStatus.READING -> strings.reading
-                    WorkStatus.WATCHING -> strings.watching
-                    WorkStatus.READ -> strings.read
-                    WorkStatus.WATCHED -> strings.watched
-                    WorkStatus.ABANDONED -> strings.abandoned
+                    WorkStatus.IN_PLANS -> stringResource(R.string.in_plans)
+                    WorkStatus.READING -> stringResource(R.string.reading)
+                    WorkStatus.WATCHING -> stringResource(R.string.watching)
+                    WorkStatus.READ -> stringResource(R.string.read)
+                    WorkStatus.WATCHED -> stringResource(R.string.watched)
+                    WorkStatus.ABANDONED -> stringResource(R.string.abandoned)
                 },
-                items = getStatusOptions().map { it.second },
+                items = statusOptions.map { it.second },
                 expanded = statusDropdownExpanded,
                 onExpandedChange = { statusDropdownExpanded = it },
                 onItemSelected = { selected ->
-                    status = getStatusOptions().find { it.second == selected }?.first ?: WorkStatus.IN_PLANS
+                    status = statusOptions.find { it.second == selected }?.first ?: WorkStatus.IN_PLANS
                     statusDropdownExpanded = false
                 },
                 modifier = Modifier.fillMaxWidth()
@@ -749,13 +755,13 @@ fun AddWorkScreen(
                     },
                     label = { Text(
                         when (type) {
-                            WorkType.BOOK, WorkType.MANGA -> strings.dateReadForBooks
-                            else -> strings.dateWatched
+                            WorkType.BOOK, WorkType.MANGA -> stringResource(R.string.date_read_for_books)
+                            else -> stringResource(R.string.date_watched)
                         }
                     ) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    placeholder = { Text(strings.datePlaceholder) },
+                    placeholder = { Text(stringResource(R.string.date_placeholder)) },
                     visualTransformation = dateVisualTransformation,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     colors = fieldColors
@@ -768,13 +774,13 @@ fun AddWorkScreen(
                 label = {
                     Text(
                         when (type) {
-                            WorkType.BOOK, WorkType.MANGA -> strings.dateReread
-                            WorkType.ANIME, WorkType.SERIES -> strings.dateRewatch
-                            else -> strings.repeats
+                            WorkType.BOOK, WorkType.MANGA -> stringResource(R.string.date_reread)
+                            WorkType.ANIME, WorkType.SERIES -> stringResource(R.string.date_rewatch)
+                            else -> stringResource(R.string.repeats)
                         }
                     )
                 },
-                placeholder = { Text(strings.rereadDatesPlaceholder) },
+                placeholder = { Text(stringResource(R.string.reread_dates_placeholder)) },
                 minLines = 1,
                 maxLines = 5,
                 colors = fieldColors,
@@ -785,8 +791,8 @@ fun AddWorkScreen(
             ScrollIsolatedMultilineField(
                 value = linksText,
                 onValueChange = { linksText = it },
-                label = { Text(strings.links) },
-                placeholder = { Text(strings.linksPlaceholder) },
+                label = { Text(stringResource(R.string.links)) },
+                placeholder = { Text(stringResource(R.string.links_placeholder)) },
                 minLines = 1,
                 maxLines = 5,
                 colors = fieldColors,
@@ -797,7 +803,7 @@ fun AddWorkScreen(
             OutlinedTextField(
                 value = note,
                 onValueChange = { note = it },
-                label = { Text(strings.noteLabel) },
+                label = { Text(stringResource(R.string.note_label)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = fieldColors
@@ -862,7 +868,7 @@ fun AddWorkScreen(
                     .padding(vertical = 16.dp),
                 enabled = title.isNotBlank()
             ) {
-                Text(strings.save)
+                Text(stringResource(R.string.save))
             }
 
             // Чтобы кнопка и последние поля не “прилипали” к нижней панели вкладок.
@@ -883,7 +889,6 @@ private fun CustomDropdown(
     onItemSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val strings = LocalStrings.current
     val fieldBg = SearchBarColor()
     val text = TitleColorBetween()
     val accentColor = MaterialTheme.colorScheme.primary

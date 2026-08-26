@@ -42,15 +42,16 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rn.library.R
 import com.rn.library.data.WorkRepository
 import com.rn.library.ui.AppSettings
 import com.rn.library.ui.Language
-import com.rn.library.ui.LocalStrings
 import com.rn.library.ui.components.HsvColorPicker
 import com.rn.library.ui.theme.MainBackgroundColor
 import com.rn.library.ui.theme.TitleColorBetween
@@ -86,7 +87,6 @@ fun SettingsScreen(
     onGridViewChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val strings = LocalStrings.current
     val context = LocalContext.current
     val repository = remember { WorkRepository(context) }
     val scope = rememberCoroutineScope()
@@ -118,7 +118,7 @@ fun SettingsScreen(
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = strings.cancel,
+                contentDescription = stringResource(R.string.cancel),
                 tint = titleColorBetween
             )
         }
@@ -130,7 +130,7 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = strings.settings,
+                text = stringResource(R.string.settings),
                 color = titleColorBetween,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
@@ -157,7 +157,7 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = settingsSectionCardColor)
             ) {
                 Text(
-                    text = strings.optimizeCovers,
+                    text = stringResource(R.string.optimize_covers),
                     color = settingsCardTextColor,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -177,15 +177,15 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = strings.tabs,
+                        text = stringResource(R.string.tabs),
                         color = settingsCardTextColor,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold
                     )
-                    tabSwitchRow(strings.tabBooks, booksTabEnabled, onBooksTabEnabledChange, currentTheme, dynamicColorsEnabled, settingsCardTextColor)
-                    tabSwitchRow(strings.tabAnime, animeTabEnabled, onAnimeTabEnabledChange, currentTheme, dynamicColorsEnabled, settingsCardTextColor)
-                    tabSwitchRow(strings.tabManga, mangaTabEnabled, onMangaTabEnabledChange, currentTheme, dynamicColorsEnabled, settingsCardTextColor)
-                    tabSwitchRow(strings.tabSeries, tvSeriesTabEnabled, onTvSeriesTabEnabledChange, currentTheme, dynamicColorsEnabled, settingsCardTextColor)
+                    tabSwitchRow(stringResource(R.string.tab_books), booksTabEnabled, onBooksTabEnabledChange, currentTheme, dynamicColorsEnabled, settingsCardTextColor)
+                    tabSwitchRow(stringResource(R.string.tab_anime), animeTabEnabled, onAnimeTabEnabledChange, currentTheme, dynamicColorsEnabled, settingsCardTextColor)
+                    tabSwitchRow(stringResource(R.string.tab_manga), mangaTabEnabled, onMangaTabEnabledChange, currentTheme, dynamicColorsEnabled, settingsCardTextColor)
+                    tabSwitchRow(stringResource(R.string.tab_series), tvSeriesTabEnabled, onTvSeriesTabEnabledChange, currentTheme, dynamicColorsEnabled, settingsCardTextColor)
                 }
             }
 
@@ -201,7 +201,7 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = strings.colorSettingsSection,
+                        text = stringResource(R.string.color_settings_section),
                         color = settingsCardTextColor,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold
@@ -212,7 +212,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = strings.dynamicColorMaterialYou,
+                            text = stringResource(R.string.dynamic_color_material_you),
                             color = settingsCardTextColor,
                             fontSize = 16.sp
                         )
@@ -228,7 +228,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = strings.useCustomAccent,
+                            text = stringResource(R.string.use_custom_accent),
                             color = settingsCardTextColor,
                             fontSize = 16.sp
                         )
@@ -242,10 +242,10 @@ fun SettingsScreen(
                         HsvColorPicker(
                             colorArgb = customAccentArgb,
                             onColorArgbChange = onCustomAccentArgbChange,
-                            labelHue = strings.colorPickerHue,
-                            labelSaturation = strings.colorPickerSaturation,
-                            labelValue = strings.colorPickerValue,
-                            hexInputLabel = strings.colorHexCode
+                            labelHue = stringResource(R.string.color_picker_hue),
+                            labelSaturation = stringResource(R.string.color_picker_saturation),
+                            labelValue = stringResource(R.string.color_picker_value),
+                            hexInputLabel = stringResource(R.string.color_hex_code)
                         )
                     }
                     Row(
@@ -254,7 +254,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = strings.useCustomStatsColor,
+                            text = stringResource(R.string.use_custom_stats_color),
                             color = settingsCardTextColor,
                             fontSize = 16.sp
                         )
@@ -268,10 +268,10 @@ fun SettingsScreen(
                         HsvColorPicker(
                             colorArgb = customStatsArgb,
                             onColorArgbChange = onCustomStatsArgbChange,
-                            labelHue = strings.colorPickerHue,
-                            labelSaturation = strings.colorPickerSaturation,
-                            labelValue = strings.colorPickerValue,
-                            hexInputLabel = strings.colorHexCode
+                            labelHue = stringResource(R.string.color_picker_hue),
+                            labelSaturation = stringResource(R.string.color_picker_saturation),
+                            labelValue = stringResource(R.string.color_picker_value),
+                            hexInputLabel = stringResource(R.string.color_hex_code)
                         )
                     }
                 }
@@ -289,15 +289,15 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = strings.language,
+                        text = stringResource(R.string.language),
                         color = settingsCardTextColor,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold
                     )
-                    languageSwitchRow(strings.english, currentLanguage == Language.ENGLISH, currentTheme, dynamicColorsEnabled, settingsCardTextColor) {
+                    languageSwitchRow(stringResource(R.string.english), currentLanguage == Language.ENGLISH, currentTheme, dynamicColorsEnabled, settingsCardTextColor) {
                         onLanguageChange(Language.ENGLISH)
                     }
-                    languageSwitchRow(strings.russian, currentLanguage == Language.RUSSIAN, currentTheme, dynamicColorsEnabled, settingsCardTextColor) {
+                    languageSwitchRow(stringResource(R.string.russian), currentLanguage == Language.RUSSIAN, currentTheme, dynamicColorsEnabled, settingsCardTextColor) {
                         onLanguageChange(Language.RUSSIAN)
                     }
                 }
@@ -320,7 +320,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = strings.incrementStepLabel,
+                            text = stringResource(R.string.increment_step_label),
                             color = settingsCardTextColor,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.SemiBold
@@ -380,7 +380,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = strings.gridViewMode,
+                            text = stringResource(R.string.grid_view_mode),
                             color = settingsCardTextColor,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.SemiBold

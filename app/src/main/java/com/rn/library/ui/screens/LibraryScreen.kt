@@ -39,7 +39,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,7 +68,12 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.rn.library.data.*
 import com.rn.library.data.toCoverImageData
-import com.rn.library.ui.*
+import androidx.compose.ui.res.stringResource
+import com.rn.library.R
+import com.rn.library.ui.rememberLanguageState
+import com.rn.library.ui.workStatusLabel
+import com.rn.library.ui.workTypeLabel
+import com.rn.library.ui.components.StaleUpdateConfirmDialog
 import com.rn.library.ui.components.ActivityStatsConfirmDialog
 import com.rn.library.ui.components.AppNavigationRail
 import com.rn.library.ui.components.BottomNavigationBar
@@ -100,7 +104,7 @@ private data class PendingWorkSave(
 
 // Extension function to convert Work to WorkItem (with localized labels and status)
 fun Work.toWorkItem(
-    strings: com.rn.library.ui.Strings,
+    statusLabel: String,
     imageUrlOverride: String? = null
 ): WorkItem {
     fun plural(count: Int, one: String, few: String, many: String): String {
@@ -169,15 +173,6 @@ fun Work.toWorkItem(
         }
     }
 
-    val statusLabel = when (status) {
-        WorkStatus.IN_PLANS -> strings.inPlans
-        WorkStatus.ABANDONED -> strings.abandoned
-        WorkStatus.READING -> strings.reading
-        WorkStatus.WATCHING -> strings.watching
-        WorkStatus.READ -> strings.read
-        WorkStatus.WATCHED -> strings.watched
-    }
-
     return WorkItem(
         id = id,
         title = title,
@@ -211,8 +206,7 @@ fun LibraryScreen(
     modifier: Modifier = Modifier
 ) {
     val languageState = rememberLanguageState()
-    val currentLanguage = languageState.currentLanguage // Observe language changes
-    val strings = remember(currentLanguage) { languageState.strings }
+    val currentLanguage = languageState.currentLanguage
     val context = LocalContext.current
     val density = LocalDensity.current
     val repository = remember { WorkRepository(context) }
@@ -287,6 +281,7 @@ fun LibraryScreen(
     var expandedCoverWork by remember { mutableStateOf<Work?>(null) }
     var pendingWorkSave by remember { mutableStateOf<PendingWorkSave?>(null) }
     var showActivityStatsConfirm by remember { mutableStateOf(false) }
+    var showStaleUpdateConfirm by remember { mutableStateOf(false) }
 
     /** Счётчик повторного выбора вкладки «Профиль» (закрытие Настроек и др. оверлеев). */
     var profileReselectSignal by remember { mutableStateOf(0) }
@@ -302,9 +297,31 @@ fun LibraryScreen(
         onAfterSave(work)
     }
 
+    fun proceedAfterStaleCheck(
+        work: Work,
+        previous: Work?,
+        onAfterSave: (Work) -> Unit,
+        staleRecordActivity: Boolean
+    ) {
+        if (repository.shouldConfirmLargeActivityDelta(previous, work)) {
+            pendingWorkSave = PendingWorkSave(work, previous, onAfterSave)
+            showActivityStatsConfirm = true
+            return
+        }
+        commitWorkSave(
+            work,
+            previous,
+            recordActivity = staleRecordActivity,
+            onAfterSave = onAfterSave
+        )
+    }
+
     fun requestSaveWork(work: Work, previous: Work?, onAfterSave: (Work) -> Unit) {
         val resolvedPrevious = previous ?: repository.getWorkById(work.id)
-        if (repository.shouldConfirmLargeActivityDelta(resolvedPrevious, work)) {
+        if (repository.shouldConfirmStaleUpdate(resolvedPrevious, work)) {
+            pendingWorkSave = PendingWorkSave(work, resolvedPrevious, onAfterSave)
+            showStaleUpdateConfirm = true
+        } else if (repository.shouldConfirmLargeActivityDelta(resolvedPrevious, work)) {
             pendingWorkSave = PendingWorkSave(work, resolvedPrevious, onAfterSave)
             showActivityStatsConfirm = true
         } else {
@@ -496,8 +513,7 @@ fun LibraryScreen(
     val iconTextColor = IconTextColor()
     val titleColorBetween = TitleColorBetween()
 
-    CompositionLocalProvider(LocalStrings provides strings) {
-        val windowInfo = rememberWindowSizeInfo()
+    val windowInfo = rememberWindowSizeInfo()
         val useNavRail = windowInfo.isLandscape
 
         val view = LocalView.current
@@ -531,6 +547,7 @@ fun LibraryScreen(
                 selectedItem = item
                 isHeaderVisible = true
                 statusFilter = null
+                searchQuery = ""
                 selectedWork = null
                 detailSearchExpanded = false
                 detailSearchQuery = ""
@@ -657,7 +674,7 @@ fun LibraryScreen(
                                         IconButton(onClick = { selectedWork = null }) {
                                             Icon(
                                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                                contentDescription = strings.cancel,
+                                                contentDescription = stringResource(R.string.cancel),
                                                 tint = titleColorBetween
                                             )
                                         }
@@ -705,7 +722,7 @@ fun LibraryScreen(
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Default.Edit,
-                                                    contentDescription = strings.editWork,
+                                                    contentDescription = stringResource(R.string.edit_work),
                                                     tint = if (currentTheme == AppTheme.DARK) Color.White else Color.Black
                                                 )
                                             }
@@ -715,7 +732,7 @@ fun LibraryScreen(
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Default.Delete,
-                                                    contentDescription = strings.deleteWork,
+                                                    contentDescription = stringResource(R.string.delete_work),
                                                     // same color as edit icon
                                                     tint = if (currentTheme == AppTheme.DARK) Color.White else Color.Black
                                                 )
@@ -729,7 +746,7 @@ fun LibraryScreen(
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Default.Add,
-                                                    contentDescription = strings.addWork,
+                                                    contentDescription = stringResource(R.string.add_work),
                                                     tint = if (currentTheme == AppTheme.DARK) iconTextColor.copy(
                                                         alpha = 0.9f
                                                     ) else Color.Black
@@ -745,17 +762,17 @@ fun LibraryScreen(
 
                                     val statusItems = when (selectedItem) {
                                         NavigationItem.Anime, NavigationItem.TVSeries -> listOf(
-                                            WorkStatus.IN_PLANS to strings.inPlans,
-                                            WorkStatus.WATCHING to strings.watching,
-                                            WorkStatus.WATCHED to strings.watched,
-                                            WorkStatus.ABANDONED to strings.abandoned
+                                            WorkStatus.IN_PLANS to stringResource(R.string.in_plans),
+                                            WorkStatus.WATCHING to stringResource(R.string.watching),
+                                            WorkStatus.WATCHED to stringResource(R.string.watched),
+                                            WorkStatus.ABANDONED to stringResource(R.string.abandoned)
                                         )
 
                                         NavigationItem.Books, NavigationItem.Manga -> listOf(
-                                            WorkStatus.IN_PLANS to strings.inPlans,
-                                            WorkStatus.READING to strings.reading,
-                                            WorkStatus.READ to strings.read,
-                                            WorkStatus.ABANDONED to strings.abandoned
+                                            WorkStatus.IN_PLANS to stringResource(R.string.in_plans),
+                                            WorkStatus.READING to stringResource(R.string.reading),
+                                            WorkStatus.READ to stringResource(R.string.read),
+                                            WorkStatus.ABANDONED to stringResource(R.string.abandoned)
                                         )
 
                                         else -> emptyList()
@@ -841,8 +858,8 @@ fun LibraryScreen(
                                 val scheme = androidx.compose.material3.MaterialTheme.colorScheme
                                 AlertDialog(
                                     onDismissRequest = { workToDelete = null },
-                                    title = { Text(strings.deleteWork) },
-                                    text = { Text(strings.deleteWorkConfirm) },
+                                    title = { Text(stringResource(R.string.delete_work)) },
+                                    text = { Text(stringResource(R.string.delete_work_confirm)) },
                                     containerColor = scheme.surface,
                                     titleContentColor = scheme.onSurface,
                                     textContentColor = scheme.onSurfaceVariant,
@@ -860,7 +877,7 @@ fun LibraryScreen(
                                                 containerColor = scheme.primary,
                                                 contentColor = scheme.onPrimary
                                             )
-                                        ) { Text(strings.delete) }
+                                        ) { Text(stringResource(R.string.delete)) }
                                     },
                                     dismissButton = {
                                         TextButton(
@@ -868,7 +885,7 @@ fun LibraryScreen(
                                             colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
                                                 contentColor = scheme.primary
                                             )
-                                        ) { Text(strings.cancel) }
+                                        ) { Text(stringResource(R.string.cancel)) }
                                     }
                                 )
                             }
@@ -1085,7 +1102,7 @@ fun LibraryScreen(
                                                                 start = 8.dp,
                                                                 end = 8.dp,
                                                                 top = 2.dp,
-                                                                bottom = if (!useNavRail) 130.dp else 16.dp
+                                                                bottom = if (!useNavRail) 118.dp else 16.dp
                                                             ),
                                                             verticalArrangement = Arrangement.spacedBy(
                                                                 4.dp
@@ -1099,7 +1116,7 @@ fun LibraryScreen(
                                                                 key = { it.id }) { work ->
                                                                 WorkItemGridCard(
                                                                     workItem = work.toWorkItem(
-                                                                        strings,
+                                                                        statusLabel = workStatusLabel(work.status),
                                                                         imageUrlOverride = sessionCoverByWorkId[work.id]
                                                                     ),
                                                                     dynamicColorsEnabled = dynamicColorsEnabled,
@@ -1126,7 +1143,7 @@ fun LibraryScreen(
                                                                     start = 16.dp,
                                                                     end = 16.dp,
                                                                     top = 8.dp,
-                                                                    bottom = if (!useNavRail) 130.dp else 16.dp
+                                                                    bottom = if (!useNavRail) 118.dp else 16.dp
                                                                 ),
                                                                 verticalArrangement = Arrangement.spacedBy(
                                                                     8.dp
@@ -1137,7 +1154,7 @@ fun LibraryScreen(
                                                                     key = { it.id }) { work ->
                                                                     WorkItemCard(
                                                                         workItem = work.toWorkItem(
-                                                                            strings,
+                                                                            statusLabel = workStatusLabel(work.status),
                                                                             imageUrlOverride = sessionCoverByWorkId[work.id]
                                                                         ),
                                                                         onClick = {
@@ -1162,11 +1179,7 @@ fun LibraryScreen(
                                                 initialOffsetY = { it / 3 },
                                                 animationSpec = tween(220, easing = FastOutSlowInEasing)
                                             ),
-                                    exit = fadeOut(animationSpec = tween(150, easing = FastOutSlowInEasing)) +
-                                            slideOutVertically(
-                                                targetOffsetY = { it / 3 },
-                                                animationSpec = tween(150, easing = FastOutSlowInEasing)
-                                            )
+                                    exit = ExitTransition.None
                                 ) {
                                     val workToDisplay = selectedWork ?: lastSelectedWork
                                     workToDisplay?.let { work ->
@@ -1225,10 +1238,10 @@ fun LibraryScreen(
                                                             )
                                                             Text(
                                                                 text = when (item.type) {
-                                                                    WorkType.BOOK -> strings.books
-                                                                    WorkType.MANGA -> strings.manga
-                                                                    WorkType.ANIME -> strings.anime
-                                                                    WorkType.SERIES -> strings.tvSeries
+                                                                    WorkType.BOOK -> stringResource(R.string.books)
+                                                                    WorkType.MANGA -> stringResource(R.string.manga)
+                                                                    WorkType.ANIME -> stringResource(R.string.anime)
+                                                                    WorkType.SERIES -> stringResource(R.string.tv_series)
                                                                 },
                                                                 color = iconTextColor.copy(alpha = 0.7f)
                                                             )
@@ -1393,7 +1406,7 @@ fun LibraryScreen(
                                                 .data(coverImageUri)
                                                 .build()
                                         ),
-                                        contentDescription = strings.cover,
+                                        contentDescription = stringResource(R.string.cover),
                                         modifier = Modifier
                                             .fillMaxWidth(0.9f)
                                             .fillMaxHeight(0.85f),
@@ -1404,6 +1417,36 @@ fun LibraryScreen(
                         }
                     }
 
+                    if (showStaleUpdateConfirm && pendingWorkSave != null) {
+                        val pending = pendingWorkSave!!
+                        StaleUpdateConfirmDialog(
+                            onConfirm = {
+                                pendingWorkSave = null
+                                showStaleUpdateConfirm = false
+                                proceedAfterStaleCheck(
+                                    pending.work,
+                                    pending.previous,
+                                    pending.onAfterSave,
+                                    staleRecordActivity = true
+                                )
+                            },
+                            onDecline = {
+                                pendingWorkSave = null
+                                showStaleUpdateConfirm = false
+                                proceedAfterStaleCheck(
+                                    pending.work,
+                                    pending.previous,
+                                    pending.onAfterSave,
+                                    staleRecordActivity = false
+                                )
+                            },
+                            onDismiss = {
+                                pendingWorkSave = null
+                                showStaleUpdateConfirm = false
+                            }
+                        )
+                    }
+
                     if (showActivityStatsConfirm && pendingWorkSave != null) {
                         val pending = pendingWorkSave!!
                         ActivityStatsConfirmDialog(
@@ -1412,7 +1455,7 @@ fun LibraryScreen(
                                     pending.work,
                                     pending.previous,
                                     recordActivity = true,
-                                    pending.onAfterSave
+                                    onAfterSave = pending.onAfterSave
                                 )
                                 pendingWorkSave = null
                                 showActivityStatsConfirm = false
@@ -1422,7 +1465,7 @@ fun LibraryScreen(
                                     pending.work,
                                     pending.previous,
                                     recordActivity = false,
-                                    pending.onAfterSave
+                                    onAfterSave = pending.onAfterSave
                                 )
                                 pendingWorkSave = null
                                 showActivityStatsConfirm = false
@@ -1436,5 +1479,4 @@ fun LibraryScreen(
                 }
             }
         }
-    }
 }

@@ -7,10 +7,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Sort
-import com.rn.library.ui.LocalStrings
+import com.rn.library.R
 
 @Composable
 fun SortOrderChip(
@@ -18,12 +19,11 @@ fun SortOrderChip(
     onSortOrderChange: (SortOrder) -> Unit,
     iconTextColor: Color
 ) {
-    val strings = LocalStrings.current
     val label = when (sortOrder) {
-        SortOrder.TITLE_ASC -> strings.sortTitleAsc
-        SortOrder.TITLE_DESC -> strings.sortTitleDesc
-        SortOrder.DATE_MODIFIED_DESC -> strings.sortDateNew
-        SortOrder.DATE_MODIFIED_ASC -> strings.sortDateOld
+        SortOrder.TITLE_ASC -> stringResource(R.string.sort_title_asc)
+        SortOrder.TITLE_DESC -> stringResource(R.string.sort_title_desc)
+        SortOrder.DATE_MODIFIED_DESC -> stringResource(R.string.sort_date_new)
+        SortOrder.DATE_MODIFIED_ASC -> stringResource(R.string.sort_date_old)
     }
 
     val next = when (sortOrder) {
@@ -48,4 +48,3 @@ fun SortOrderChip(
         )
     )
 }
-

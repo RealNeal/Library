@@ -1,5 +1,6 @@
 package com.rn.library.ui.components
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -20,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,23 +32,21 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
-import com.rn.library.ui.LocalStrings
+import com.rn.library.R
 import com.rn.library.ui.screens.AppTheme
 import com.rn.library.ui.theme.*
 import com.rn.library.util.WindowHeightClass
 import com.rn.library.util.rememberWindowSizeInfo
 
 sealed class NavigationItem(
-    val labelKey: (com.rn.library.ui.Strings) -> String,
+    @StringRes val labelRes: Int,
     val icon: ImageVector
 ) {
-    object Books : NavigationItem({ it.tabBooks }, Icons.AutoMirrored.Filled.MenuBook)
-    object Anime : NavigationItem({ it.tabAnime }, Icons.Default.Movie)
-    // Manga: more thematic "book" icon
-    object Manga : NavigationItem({ it.tabManga }, Icons.Default.AutoStories)
-    // TV series: revert to TV icon
-    object TVSeries : NavigationItem({ it.tabSeries }, Icons.Default.Tv)
-    object Profile : NavigationItem({ it.profile }, Icons.Default.Person)
+    object Books : NavigationItem(R.string.tab_books, Icons.AutoMirrored.Filled.MenuBook)
+    object Anime : NavigationItem(R.string.tab_anime, Icons.Default.Movie)
+    object Manga : NavigationItem(R.string.tab_manga, Icons.Default.AutoStories)
+    object TVSeries : NavigationItem(R.string.tab_series, Icons.Default.Tv)
+    object Profile : NavigationItem(R.string.profile, Icons.Default.Person)
 }
 
 internal fun saturatedAccent(base: Color, darkTheme: Boolean, selected: Boolean): Color {
@@ -76,9 +76,11 @@ fun BottomNavigationBar(
     tvSeriesEnabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val strings = LocalStrings.current
+    val windowInfo = rememberWindowSizeInfo()
+    val isCompactHeight = windowInfo.isLandscape || windowInfo.heightClass == WindowHeightClass.COMPACT
+    val barHeight = if (isCompactHeight) 68.dp else 118.dp
+    val bottomPadding = if (isCompactHeight) 8.dp else 30.dp
     val panelColor = PanelColor()
-
     val items = buildList {
         if (booksEnabled) add(NavigationItem.Books)
         if (animeEnabled) add(NavigationItem.Anime)
@@ -86,11 +88,6 @@ fun BottomNavigationBar(
         if (tvSeriesEnabled) add(NavigationItem.TVSeries)
         add(NavigationItem.Profile)
     }
-
-    val windowInfo = rememberWindowSizeInfo()
-    val isCompactHeight = windowInfo.isLandscape || windowInfo.heightClass == WindowHeightClass.COMPACT
-    val barHeight = if (isCompactHeight) 75.dp else 130.dp
-    val bottomPadding = if (isCompactHeight) 8.dp else 30.dp
 
     Row(
         modifier = modifier
@@ -104,128 +101,96 @@ fun BottomNavigationBar(
         items.forEach { item ->
             NavigationButton(
                 item = item,
-                label = item.labelKey(strings),
+                label = stringResource(item.labelRes),
                 isSelected = item == selectedItem,
                 onClick = { onItemSelected(item) },
                 currentTheme = currentTheme,
-                dynamicColorsEnabled = dynamicColorsEnabled,
-                modifier = Modifier.weight(1f)
+                dynamicColorsEnabled = dynamicColorsEnabled
             )
         }
     }
 }
 
-
 @Composable
-fun NavigationButton(
+private fun NavigationButton(
     item: NavigationItem,
     label: String,
     isSelected: Boolean,
     onClick: () -> Unit,
-    currentTheme: AppTheme = AppTheme.DARK,
-    dynamicColorsEnabled: Boolean = false,
-    modifier: Modifier = Modifier
+    currentTheme: AppTheme,
+    dynamicColorsEnabled: Boolean
 ) {
-    val bottomPanelLabelColor = BottomPanelLabelColor()
-    val bottomPanelIconColor = BottomPanelIconColor()
-    val staticTabBackground = StaticTabBackgroundColor()
+    val iconColor = BottomPanelIconColor()
+    val labelColor = BottomPanelLabelColor()
+    val activeScheme = MaterialTheme.colorScheme
+    val primaryAccent = activeScheme.primary
+    val selectedAccentTint = saturatedAccent(primaryAccent, currentTheme == AppTheme.DARK, selected = true)
     val staticTabContent = StaticTabContentColor()
-    val interactionSource = remember { MutableInteractionSource() }
-
-    val dynamicScheme = MaterialTheme.colorScheme
-    val inactiveTint =
-        if (currentTheme == AppTheme.LIGHT) Color(0xFF5F6368) else Color(0xFFB0BEC5)
-    val selectedAccentTint = saturatedAccent(dynamicScheme.primary, currentTheme == AppTheme.DARK, selected = true)
-
-    val targetIconTint = when {
-        isSelected && dynamicColorsEnabled -> selectedAccentTint
-        isSelected -> staticTabContent
-        dynamicColorsEnabled -> inactiveTint
-        else -> bottomPanelIconColor
-    }
-    val targetLabelColor = when {
-        isSelected && dynamicColorsEnabled -> selectedAccentTint
-        isSelected -> staticTabContent
-        dynamicColorsEnabled -> inactiveTint
-        else -> bottomPanelLabelColor
+    val selectedContentColor = if (dynamicColorsEnabled) selectedAccentTint else staticTabContent
+    val selectedBackgroundColor = if (dynamicColorsEnabled) {
+        activeScheme.secondaryContainer
+    } else {
+        primaryAccent.copy(alpha = 0.25f)
     }
 
-    val animatedIconTint by animateColorAsState(
-        targetValue = targetIconTint,
-        animationSpec = tween(durationMillis = 100),
-        label = "animatedIconTint"
+    val animatedScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.05f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "navScale"
+    )
+    val animatedIconColor by animateColorAsState(
+        targetValue = if (isSelected) selectedContentColor else iconColor,
+        animationSpec = tween(200, easing = FastOutSlowInEasing),
+        label = "navIconColor"
     )
     val animatedLabelColor by animateColorAsState(
-        targetValue = targetLabelColor,
-        animationSpec = tween(durationMillis = 100),
-        label = "animatedLabelColor"
+        targetValue = if (isSelected) selectedContentColor else labelColor,
+        animationSpec = tween(200, easing = FastOutSlowInEasing),
+        label = "navLabelColor"
     )
-
-    val circleColor = if (dynamicColorsEnabled) {
-        dynamicScheme.secondaryContainer
-    } else {
-        dynamicScheme.primary.copy(alpha = 0.25f)
-    }
-
-    val circleAlpha by animateFloatAsState(
-        targetValue = if (isSelected) 1f else 0f,
-        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-        label = "circleAlpha"
-    )
-    val circleScale by animateFloatAsState(
-        targetValue = if (isSelected) 1f else 0.2f,
-        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-        label = "circleScale"
-    )
-    val iconScale by animateFloatAsState(
-        targetValue = if (isSelected) 1.15f else 1.0f,
-        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-        label = "iconScale"
+    val animatedBackgroundColor by animateColorAsState(
+        targetValue = if (isSelected) selectedBackgroundColor else Color.Transparent,
+        animationSpec = tween(200, easing = FastOutSlowInEasing),
+        label = "navBgColor"
     )
 
     Column(
-        modifier = modifier
+        modifier = Modifier
+            .graphicsLayer {
+                scaleX = animatedScale
+                scaleY = animatedScale
+            }
+            .clip(CircleShape)
             .clickable(
-                onClick = onClick,
+                interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                interactionSource = interactionSource
-            ),
+                onClick = onClick
+            )
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(44.dp)
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(animatedBackgroundColor),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .graphicsLayer {
-                        alpha = circleAlpha
-                        scaleX = circleScale
-                        scaleY = circleScale
-                    }
-                    .background(circleColor)
-            )
             Icon(
                 imageVector = item.icon,
                 contentDescription = label,
-                tint = animatedIconTint,
-                modifier = Modifier
-                    .size(28.dp)
-                    .graphicsLayer {
-                        scaleX = iconScale
-                        scaleY = iconScale
-                    }
+                tint = animatedIconColor,
+                modifier = Modifier.size(30.dp)
             )
         }
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(1.dp))
         Text(
             text = label,
             color = animatedLabelColor,
             fontSize = 12.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1
         )
     }
 }

@@ -18,8 +18,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.delay
-import com.rn.library.ui.LocalStrings
+import com.rn.library.R
 import com.rn.library.ui.screens.AppTheme
 import com.rn.library.ui.theme.IconTextColor
 import com.rn.library.ui.theme.SearchBarColor
@@ -34,7 +35,6 @@ fun SearchBar(
     expanded: Boolean? = null,
     onExpandedChange: (Boolean) -> Unit = {}
 ) {
-    val strings = LocalStrings.current
     val iconTextColor = IconTextColor()
     val baseSearchBarColor = SearchBarColor()
     
@@ -91,7 +91,7 @@ fun SearchBar(
         ) {
             Icon(
                 imageVector = Icons.Default.Search,
-                contentDescription = strings.search,
+                contentDescription = stringResource(R.string.search),
                 tint = if (currentTheme == AppTheme.DARK) Color.White else Color.Black,
                 modifier = Modifier.size(24.dp)
             )
@@ -114,14 +114,14 @@ fun SearchBar(
                 ),
             placeholder = {
                 Text(
-                    text = strings.search,
+                    text = stringResource(R.string.search),
                     color = iconTextColor.copy(alpha = 0.6f)
                 )
             },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Search,
-                    contentDescription = strings.search,
+                    contentDescription = stringResource(R.string.search),
                     tint = if (currentTheme == AppTheme.DARK) Color.White else Color.Black,
                     modifier = Modifier.size(24.dp)
                 )

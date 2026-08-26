@@ -26,6 +26,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -37,10 +38,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
+import com.rn.library.R
 import com.rn.library.data.*
 import com.rn.library.data.readProgressUnits
 import com.rn.library.data.watchedProgressUnits
-import com.rn.library.ui.LocalStrings
 import com.rn.library.util.LinkOpenHelper
 import com.rn.library.ui.theme.*
 import java.io.File
@@ -91,7 +92,6 @@ fun WorkDetailScreen(
     onScrollStateChange: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val strings = LocalStrings.current
     val mainBackgroundColor = MainBackgroundColor()
     val titleColorBetween = TitleColorBetween()
     val iconTextColor = IconTextColor()
@@ -99,12 +99,12 @@ fun WorkDetailScreen(
     val fieldTextColor = if (currentTheme == AppTheme.DARK) Color.White else Color.Black
 
     val statusLabel = when (work.status) {
-        WorkStatus.READ -> strings.read
-        WorkStatus.READING -> strings.reading
-        WorkStatus.WATCHING -> strings.watching
-        WorkStatus.WATCHED -> strings.watched
-        WorkStatus.IN_PLANS -> strings.inPlans
-        WorkStatus.ABANDONED -> strings.abandoned
+        WorkStatus.READ -> stringResource(R.string.read)
+        WorkStatus.READING -> stringResource(R.string.reading)
+        WorkStatus.WATCHING -> stringResource(R.string.watching)
+        WorkStatus.WATCHED -> stringResource(R.string.watched)
+        WorkStatus.IN_PLANS -> stringResource(R.string.in_plans)
+        WorkStatus.ABANDONED -> stringResource(R.string.abandoned)
     }
 
     // Цвета для статусов (те же, что в ProfileScreen)
@@ -119,17 +119,17 @@ fun WorkDetailScreen(
 
     // Лейблы для SeriesType и MangaType
     val seriesTypeLabel = when (work.seriesType) {
-        SeriesType.TV_SERIES -> strings.tvSeries
-        SeriesType.FILM -> strings.film
-        SeriesType.CARTOON -> strings.cartoon
-        SeriesType.DRAMA -> strings.drama
+        SeriesType.TV_SERIES -> stringResource(R.string.tv_series)
+        SeriesType.FILM -> stringResource(R.string.film)
+        SeriesType.CARTOON -> stringResource(R.string.cartoon)
+        SeriesType.DRAMA -> stringResource(R.string.drama)
         null -> null
     }
 
     val mangaTypeLabel = when (work.mangaType) {
-        MangaType.MANGA -> strings.manga
-        MangaType.MANHWA -> strings.manhwa
-        MangaType.MANHUA -> strings.manhua
+        MangaType.MANGA -> stringResource(R.string.manga)
+        MangaType.MANHWA -> stringResource(R.string.manhwa)
+        MangaType.MANHUA -> stringResource(R.string.manhua)
         null -> null
     }
 
@@ -226,16 +226,16 @@ fun WorkDetailScreen(
     // Определяем доступные статусы в зависимости от типа произведения
     val availableStatuses = when (work.type) {
         WorkType.BOOK, WorkType.MANGA -> listOf(
-            WorkStatus.IN_PLANS to strings.inPlans,
-            WorkStatus.READING to strings.reading,
-            WorkStatus.READ to strings.read,
-            WorkStatus.ABANDONED to strings.abandoned
+            WorkStatus.IN_PLANS to stringResource(R.string.in_plans),
+            WorkStatus.READING to stringResource(R.string.reading),
+            WorkStatus.READ to stringResource(R.string.read),
+            WorkStatus.ABANDONED to stringResource(R.string.abandoned)
         )
         WorkType.ANIME, WorkType.SERIES -> listOf(
-            WorkStatus.IN_PLANS to strings.inPlans,
-            WorkStatus.WATCHING to strings.watching,
-            WorkStatus.WATCHED to strings.watched,
-            WorkStatus.ABANDONED to strings.abandoned
+            WorkStatus.IN_PLANS to stringResource(R.string.in_plans),
+            WorkStatus.WATCHING to stringResource(R.string.watching),
+            WorkStatus.WATCHED to stringResource(R.string.watched),
+            WorkStatus.ABANDONED to stringResource(R.string.abandoned)
         )
         else -> emptyList()
     }
@@ -243,29 +243,30 @@ fun WorkDetailScreen(
     // Определяем доступные типы сериалов
     val availableSeriesTypes = listOf(
         null to "",
-        SeriesType.TV_SERIES to strings.tvSeries,
-        SeriesType.FILM to strings.film,
-        SeriesType.CARTOON to strings.cartoon,
-        SeriesType.DRAMA to strings.drama
+        SeriesType.TV_SERIES to stringResource(R.string.tv_series),
+        SeriesType.FILM to stringResource(R.string.film),
+        SeriesType.CARTOON to stringResource(R.string.cartoon),
+        SeriesType.DRAMA to stringResource(R.string.drama)
     )
 
     // Определяем доступные типы манги
     val availableMangaTypes = listOf(
         null to "",
-        MangaType.MANGA to strings.manga,
-        MangaType.MANHWA to strings.manhwa,
-        MangaType.MANHUA to strings.manhua
+        MangaType.MANGA to stringResource(R.string.manga),
+        MangaType.MANHWA to stringResource(R.string.manhwa),
+        MangaType.MANHUA to stringResource(R.string.manhua)
     )
 
     // Функция подготовки данных для редактирования
-    fun prepareEditInfo(work: Work, strings: com.rn.library.ui.Strings): List<EditInfoItem> {
+    @Composable
+    fun prepareEditInfo(work: Work): List<EditInfoItem> {
         val items = mutableListOf<EditInfoItem>()
 
         if (work.type == WorkType.SERIES) {
             items.add(
                 EditInfoItem(
                     key = "seasons",
-                    label = strings.seasonsView,
+                    label = stringResource(R.string.seasons_view),
                     value = work.seasons?.toString().orEmpty(),
                     type = EditInfoType.INT,
                     originalValue = work.seasons
@@ -277,7 +278,7 @@ fun WorkDetailScreen(
             items.add(
                 EditInfoItem(
                     key = "episodes",
-                    label = strings.seriesView,
+                    label = stringResource(R.string.series_view),
                     value = work.episodes?.let { formatDoubleForDisplay(it) }.orEmpty(),
                     type = EditInfoType.INT,
                     originalValue = work.episodes
@@ -289,7 +290,7 @@ fun WorkDetailScreen(
             items.add(
                 EditInfoItem(
                     key = "chapters",
-                    label = strings.volumesView,
+                    label = stringResource(R.string.volumes_view),
                     value = work.chapters?.let { formatDoubleForDisplay(it) }.orEmpty(),
                     type = EditInfoType.INT,
                     originalValue = work.chapters
@@ -298,7 +299,7 @@ fun WorkDetailScreen(
             items.add(
                 EditInfoItem(
                     key = "bookChapters",
-                    label = strings.chaptersView,
+                    label = stringResource(R.string.chapters_view),
                     value = work.bookChapters?.let { formatDoubleForDisplay(it) }.orEmpty(),
                     type = EditInfoType.INT,
                     originalValue = work.bookChapters
@@ -310,7 +311,7 @@ fun WorkDetailScreen(
             items.add(
                 EditInfoItem(
                     key = "volumes",
-                    label = strings.volumesView,
+                    label = stringResource(R.string.volumes_view),
                     value = work.volumes?.let { formatDoubleForDisplay(it) }.orEmpty(),
                     type = EditInfoType.INT,
                     originalValue = work.volumes
@@ -319,7 +320,7 @@ fun WorkDetailScreen(
             items.add(
                 EditInfoItem(
                     key = "chapters",
-                    label = strings.chaptersView,
+                    label = stringResource(R.string.chapters_view),
                     value = work.chapters?.let { formatDoubleForDisplay(it) }.orEmpty(),
                     type = EditInfoType.INT,
                     originalValue = work.chapters
@@ -328,8 +329,8 @@ fun WorkDetailScreen(
         }
 
         val progressLabel = when (work.type) {
-            WorkType.BOOK, WorkType.MANGA -> strings.read
-            WorkType.ANIME, WorkType.SERIES -> strings.watched
+            WorkType.BOOK, WorkType.MANGA -> stringResource(R.string.read)
+            WorkType.ANIME, WorkType.SERIES -> stringResource(R.string.watched)
         }
         items.add(
             EditInfoItem(
@@ -344,7 +345,7 @@ fun WorkDetailScreen(
         items.add(
             EditInfoItem(
                 key = "year",
-                label = strings.year,
+                label = stringResource(R.string.year),
                 value = (work.yearPeriod ?: work.year?.toString()).orEmpty(),
                 type = EditInfoType.STRING,
                 originalValue = work.yearPeriod ?: work.year
@@ -356,9 +357,9 @@ fun WorkDetailScreen(
             EditInfoItem(
                 key = "dateRead",
                 label = when (work.type) {
-                    WorkType.BOOK, WorkType.MANGA -> strings.dateReadForBooks
-                    WorkType.ANIME, WorkType.SERIES -> strings.dateWatched
-                    else -> strings.dateRead
+                    WorkType.BOOK, WorkType.MANGA -> stringResource(R.string.date_read_for_books)
+                    WorkType.ANIME, WorkType.SERIES -> stringResource(R.string.date_watched)
+                    else -> stringResource(R.string.date_read)
                 },
                 // Как в AddWorkScreen: храним только цифры DDMMYYYY, чтобы применить визуальную маску
                 value = work.dateRead?.split("-")?.let { parts ->
@@ -372,9 +373,9 @@ fun WorkDetailScreen(
             EditInfoItem(
                 key = "rereadDates",
                 label = when (work.type) {
-                    WorkType.BOOK, WorkType.MANGA -> strings.dateReread
-                    WorkType.ANIME, WorkType.SERIES -> strings.dateRewatch
-                    else -> strings.repeats
+                    WorkType.BOOK, WorkType.MANGA -> stringResource(R.string.date_reread)
+                    WorkType.ANIME, WorkType.SERIES -> stringResource(R.string.date_rewatch)
+                    else -> stringResource(R.string.repeats)
                 },
                 value = formatRereadDatesForDisplay(work.rereadDates),
                 type = EditInfoType.DATE_LIST,
@@ -385,7 +386,7 @@ fun WorkDetailScreen(
         items.add(
             EditInfoItem(
                 key = "note",
-                label = strings.noteLabel,
+                label = stringResource(R.string.note_label),
                 value = work.note.orEmpty(),
                 type = EditInfoType.STRING,
                 originalValue = work.note
@@ -394,6 +395,8 @@ fun WorkDetailScreen(
 
         return items
     }
+
+    val preparedEditInfo = prepareEditInfo(work)
 
     Box(
         modifier = modifier
@@ -525,7 +528,7 @@ fun WorkDetailScreen(
                             enabled = true,
                             label = {
                                 Text(
-                                    text = seriesTypeLabel ?: strings.tvSeriesType,
+                                    text = seriesTypeLabel ?: stringResource(R.string.tv_series_type),
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             },
@@ -581,7 +584,7 @@ fun WorkDetailScreen(
                             enabled = true,
                             label = {
                                 Text(
-                                    text = mangaTypeLabel ?: strings.mangaType,
+                                    text = mangaTypeLabel ?: stringResource(R.string.manga_type),
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             },
@@ -652,8 +655,8 @@ fun WorkDetailScreen(
             ) {
                 if (hasPrimaryLink) {
                     val actionLabel = when (work.type) {
-                        WorkType.BOOK, WorkType.MANGA -> strings.linkActionRead
-                        WorkType.ANIME, WorkType.SERIES -> strings.linkActionWatch
+                        WorkType.BOOK, WorkType.MANGA -> stringResource(R.string.link_action_read)
+                        WorkType.ANIME, WorkType.SERIES -> stringResource(R.string.link_action_watch)
                     }
                     Button(
                         onClick = { openPrimaryLink() },
@@ -667,7 +670,7 @@ fun WorkDetailScreen(
                 }
                 OutlinedButton(
                     onClick = {
-                        editInfoParts = prepareEditInfo(work, strings)
+                        editInfoParts = preparedEditInfo
                         temporaryWork = work.copy()
                         showEditInfoDialog = true
                     },
@@ -676,7 +679,7 @@ fun WorkDetailScreen(
                     ),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 ) {
-                    Text(strings.editInfoButton)
+                    Text(stringResource(R.string.edit_info_button))
                 }
             }
 
@@ -694,62 +697,62 @@ fun WorkDetailScreen(
                 val formattedProgress = formatDouble(p)
                 when (work.type) {
                     WorkType.ANIME, WorkType.SERIES ->
-                        infoParts.add("${strings.progressWatchedEpisodes}: $formattedProgress")
+                        infoParts.add("${stringResource(R.string.progress_watched_episodes)}: $formattedProgress")
                     WorkType.BOOK, WorkType.MANGA ->
-                        infoParts.add("${strings.progressReadChapters}: $formattedProgress")
+                        infoParts.add("${stringResource(R.string.progress_read_chapters)}: $formattedProgress")
                 }
             }
             when (work.type) {
                 WorkType.SERIES -> {
                     work.episodes?.let {
                         val formatted = formatDouble(it)
-                        infoParts.add("${strings.seriesView}: $formatted")
+                        infoParts.add("${stringResource(R.string.series_view)}: $formatted")
                     }
-                    work.seasons?.let { infoParts.add("${strings.seasonsView}: $it") }
+                    work.seasons?.let { infoParts.add("${stringResource(R.string.seasons_view)}: $it") }
                 }
                 WorkType.ANIME -> {
                     work.episodes?.let {
                         val formatted = formatDouble(it)
-                        infoParts.add("${strings.seriesView}: $formatted")
+                        infoParts.add("${stringResource(R.string.series_view)}: $formatted")
                     }
                 }
                 WorkType.BOOK -> {
                     work.bookChapters?.let {
-                        infoParts.add("${strings.chaptersView}: ${formatDouble(it)}")
+                        infoParts.add("${stringResource(R.string.chapters_view)}: ${formatDouble(it)}")
                     }
                     work.chapters?.let {
                         val formatted = formatDouble(it)
-                        infoParts.add("${strings.volumesView}: $formatted")
+                        infoParts.add("${stringResource(R.string.volumes_view)}: $formatted")
                     }
                 }
                 WorkType.MANGA -> {
                     work.chapters?.let {
                         val formatted = formatDouble(it)
-                        infoParts.add("${strings.chaptersView}: $formatted")
+                        infoParts.add("${stringResource(R.string.chapters_view)}: $formatted")
                     }
                     work.volumes?.let {
-                        infoParts.add("${strings.volumesView}: ${formatDouble(it)}")
+                        infoParts.add("${stringResource(R.string.volumes_view)}: ${formatDouble(it)}")
                     }
                 }
             }
             if (work.type == WorkType.ANIME) {
                 work.animeSeason?.let { season ->
                     val seasonLabel = when (season) {
-                        AnimeSeason.SPRING -> strings.spring
-                        AnimeSeason.SUMMER -> strings.summer
-                        AnimeSeason.FALL -> strings.fall
-                        AnimeSeason.WINTER -> strings.winter
+                        AnimeSeason.SPRING -> stringResource(R.string.spring)
+                        AnimeSeason.SUMMER -> stringResource(R.string.summer)
+                        AnimeSeason.FALL -> stringResource(R.string.fall)
+                        AnimeSeason.WINTER -> stringResource(R.string.winter)
                     }
-                    infoParts.add("${strings.animeSeason}: $seasonLabel")
+                    infoParts.add("${stringResource(R.string.anime_season)}: $seasonLabel")
                 }
             }
-            (work.yearPeriod ?: work.year?.toString())?.let { infoParts.add("${strings.year}: $it") }
-            work.country?.let { infoParts.add("${strings.country}: $it") }
+            (work.yearPeriod ?: work.year?.toString())?.let { infoParts.add("${stringResource(R.string.year)}: $it") }
+            work.country?.let { infoParts.add("${stringResource(R.string.country)}: $it") }
             work.dateRead?.let { dateStr ->
                 val dateLabel = when (work.type) {
-                    WorkType.BOOK, WorkType.MANGA -> strings.dateReadForBooks
-                    WorkType.ANIME, WorkType.SERIES -> strings.dateWatched
-                    else -> strings.dateRead
+                    WorkType.BOOK, WorkType.MANGA -> stringResource(R.string.date_read_for_books)
+                    WorkType.ANIME, WorkType.SERIES -> stringResource(R.string.date_watched)
+                    else -> stringResource(R.string.date_read)
                 }
                 // Конвертируем дату из YYYY-MM-DD в DD.MM.YYYY для отображения
                 val formattedDate = try {
@@ -770,9 +773,9 @@ fun WorkDetailScreen(
                     if (parts.size == 3) "${parts[2]}.${parts[1]}.${parts[0]}" else date
                 }
                 val rereadLabel = when (work.type) {
-                    WorkType.BOOK, WorkType.MANGA -> strings.dateReread
-                    WorkType.ANIME, WorkType.SERIES -> strings.dateRewatch
-                    else -> strings.repeats
+                    WorkType.BOOK, WorkType.MANGA -> stringResource(R.string.date_reread)
+                    WorkType.ANIME, WorkType.SERIES -> stringResource(R.string.date_rewatch)
+                    else -> stringResource(R.string.repeats)
                 }
                 infoParts.add("$rereadLabel: $rereads")
             }
@@ -818,7 +821,7 @@ fun WorkDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(1.dp)
                 ) {
                     Text(
-                        text = if (work.description.isBlank()) strings.descriptionEmpty else work.description,
+                        text = if (work.description.isBlank()) stringResource(R.string.description_empty) else work.description,
                         color = titleColorBetween,
                         fontSize = 17.sp,
                         lineHeight = 20.sp,
@@ -865,8 +868,8 @@ fun WorkDetailScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 val progressPrefix = when (work.type) {
-                    WorkType.BOOK, WorkType.MANGA -> strings.read
-                    WorkType.ANIME, WorkType.SERIES -> strings.watched
+                    WorkType.BOOK, WorkType.MANGA -> stringResource(R.string.read)
+                    WorkType.ANIME, WorkType.SERIES -> stringResource(R.string.watched)
                 }
                 // Format values for display (remove trailing zeros)
                 fun formatDouble(value: Double): String {
@@ -924,9 +927,9 @@ fun WorkDetailScreen(
                                 )
                             }
                             val labelText = if (allLinks.size == 1) {
-                                strings.links.takeIf { it.isNotBlank() } ?: strings.link1.replace(" 1", "")
+                                stringResource(R.string.links).takeIf { it.isNotBlank() } ?: stringResource(R.string.link1).replace(" 1", "")
                             } else {
-                                "${strings.link1.replace(" 1", "")} ${index + 1}"
+                                "${stringResource(R.string.link1).replace(" 1", "")} ${index + 1}"
                             }
                             Column(
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -968,7 +971,7 @@ fun WorkDetailScreen(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = strings.noteLabel,
+                            text = stringResource(R.string.note_label),
                             color = if (currentTheme == AppTheme.DARK) Color.White else Color.Black,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold
@@ -1049,7 +1052,7 @@ fun WorkDetailScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = strings.title,
+                                text = stringResource(R.string.title),
                                 color = titleColorBetween,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -1061,7 +1064,7 @@ fun WorkDetailScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.ContentCopy,
-                                    contentDescription = strings.copyTitleContentDesc,
+                                    contentDescription = stringResource(R.string.copy_title_content_desc),
                                     tint = iconTextColor
                                 )
                             }
@@ -1082,7 +1085,7 @@ fun WorkDetailScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = strings.alternativeTitles,
+                                text = stringResource(R.string.alternative_titles),
                                 color = titleColorBetween,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -1094,7 +1097,7 @@ fun WorkDetailScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.ContentCopy,
-                                    contentDescription = strings.copyAlternativeTitlesContentDesc,
+                                    contentDescription = stringResource(R.string.copy_alternative_titles_content_desc),
                                     tint = iconTextColor
                                 )
                             }
@@ -1194,8 +1197,6 @@ private fun EditInfoDialog(
     val titleColorBetween = TitleColorBetween()
     val iconTextColor = IconTextColor()
     val searchBarColor = SearchBarColor()
-    val strings = LocalStrings.current
-
     // Цвет для текста полей и лейблов: белый в тёмной теме, чёрный в светлой
     val fieldTextColor = if (currentTheme == AppTheme.DARK) Color.White else Color.Black
 
@@ -1219,8 +1220,8 @@ private fun EditInfoDialog(
     // Шаг инкремента из настроек (минимум 1)
     val incrementStep = remember { AppSettings.getIncrementStep(context).coerceAtLeast(1) }
     val unitPrefixLabel = when (tempWork.type) {
-        WorkType.BOOK, WorkType.MANGA -> strings.volumeUnitPrefix
-        WorkType.SERIES, WorkType.ANIME -> strings.seasonUnitPrefix
+        WorkType.BOOK, WorkType.MANGA -> stringResource(R.string.volume_unit_prefix)
+        WorkType.SERIES, WorkType.ANIME -> stringResource(R.string.season_unit_prefix)
         else -> ""
     }
 
@@ -1287,7 +1288,7 @@ private fun EditInfoDialog(
                                 tempValues[index] = item.copy(value = filtered)
                             },
                             label = { Text(item.label) },
-                            placeholder = { Text(strings.rereadDatesPlaceholder) },
+                            placeholder = { Text(stringResource(R.string.reread_dates_placeholder)) },
                             minLines = 1,
                             maxLines = if (isLandscape) 2 else 5,
                             colors = TextFieldDefaults.colors(
@@ -1311,7 +1312,7 @@ private fun EditInfoDialog(
                                 tempValues[index] = item.copy(value = digitsOnly)
                             },
                             label = { Text(item.label) },
-                            placeholder = { Text(strings.datePlaceholder) },
+                            placeholder = { Text(stringResource(R.string.date_placeholder)) },
                             visualTransformation = DateVisualTransformation(),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
@@ -1499,7 +1500,7 @@ private fun EditInfoDialog(
                         modifier = if (isLandscape) Modifier.height(44.dp).padding(horizontal = 16.dp) else Modifier
                     ) {
                         Text(
-                            text = strings.cancel,
+                            text = stringResource(R.string.cancel),
                             color = iconTextColor,
                             fontSize = if (isLandscape) 16.sp else 14.sp,
                             fontWeight = if (isLandscape) FontWeight.Bold else FontWeight.Normal
@@ -1614,7 +1615,7 @@ private fun EditInfoDialog(
                         modifier = if (isLandscape) Modifier.height(44.dp).padding(horizontal = 24.dp) else Modifier
                     ) {
                         Text(
-                            text = strings.save,
+                            text = stringResource(R.string.save),
                             fontSize = if (isLandscape) 16.sp else 14.sp,
                             fontWeight = FontWeight.Bold
                         )

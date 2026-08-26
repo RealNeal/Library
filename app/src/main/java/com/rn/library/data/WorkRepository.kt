@@ -157,21 +157,39 @@ class WorkRepository(private val context: Context) {
             ) {
                 watchDelta = 0.0
             }
+            // Смена с «Прочитано»/«Просмотрено» не должна списывать ранее записанную активность.
+            if (previous.type in setOf(WorkType.BOOK, WorkType.MANGA) &&
+                previous.status == WorkStatus.READ &&
+                saved.status != WorkStatus.READ
+            ) {
+                readDelta = 0.0
+            }
+            if (previous.type in setOf(WorkType.ANIME, WorkType.SERIES) &&
+                previous.status == WorkStatus.WATCHED &&
+                saved.status != WorkStatus.WATCHED
+            ) {
+                watchDelta = 0.0
+            }
         }
         return readDelta to watchDelta
     }
 
-    private fun isActivityUpdateExpired(previous: Work?): Boolean {
+    fun isStaleWork(previous: Work?): Boolean {
         if (previous == null) return false
-        val updatedAt = previous.updatedAt ?: return false
-        val now = System.currentTimeMillis()
-        val fortyEightHoursMs = 48 * 60 * 60 * 1000L
-        return (now - updatedAt) > fortyEightHoursMs
+        val updatedAt = previous.updatedAt ?: return true
+        val thresholdMs = STALE_UPDATE_THRESHOLD_DAYS * 24L * 60 * 60 * 1000
+        return (System.currentTimeMillis() - updatedAt) >= thresholdMs
+    }
+
+    /** Нужно ли спрашивать пользователя о записи прогресса по давно не обновляемому произведению. */
+    fun shouldConfirmStaleUpdate(previous: Work?, saved: Work): Boolean {
+        if (!isStaleWork(previous)) return false
+        val (readDelta, watchDelta) = calculateProgressDelta(previous, saved)
+        return readDelta != 0.0 || watchDelta != 0.0
     }
 
     /** Нужно ли спрашивать пользователя о записи в Heatmap / «Активность по периодам». */
     fun shouldConfirmLargeActivityDelta(previous: Work?, saved: Work): Boolean {
-        if (isActivityUpdateExpired(previous)) return false
         val (readDelta, watchDelta) = calculateProgressDelta(previous, saved)
         if (readDelta == 0.0 && watchDelta == 0.0) return false
         return when (saved.type) {
@@ -234,8 +252,6 @@ class WorkRepository(private val context: Context) {
     }
 
     private fun recordProgressDelta(previous: Work?, saved: Work) {
-        if (isActivityUpdateExpired(previous)) return
-
         val (readDelta, watchDelta) = calculateProgressDelta(previous, saved)
         if (readDelta == 0.0 && watchDelta == 0.0) return
 
@@ -1395,6 +1411,7 @@ class WorkRepository(private val context: Context) {
 
     companion object {
         const val LARGE_ACTIVITY_DELTA_THRESHOLD = 50
+        const val STALE_UPDATE_THRESHOLD_DAYS = 7
 
         fun generateId(): String = UUID.randomUUID().toString()
     }

@@ -7,10 +7,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.rn.library.ui.LocalStrings
+import com.rn.library.R
 import com.rn.library.ui.theme.SearchBarColor
 import com.rn.library.ui.theme.TitleColorBetween
 
@@ -27,12 +28,11 @@ fun HorizontalTabNavigation(
     onTabSelected: (HorizontalTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val strings = LocalStrings.current
     val tabs = listOf(
-        HorizontalTab.MY_TAB to strings.myTab,
-        HorizontalTab.LATEST to strings.latest,
-        HorizontalTab.ONGOINGS to strings.ongoings,
-        HorizontalTab.ANNOUNCEMENTS to strings.announcements
+        HorizontalTab.MY_TAB to stringResource(R.string.my_tab),
+        HorizontalTab.LATEST to stringResource(R.string.latest),
+        HorizontalTab.ONGOINGS to stringResource(R.string.ongoings),
+        HorizontalTab.ANNOUNCEMENTS to stringResource(R.string.announcements)
     )
 
     val titleBetween = TitleColorBetween()

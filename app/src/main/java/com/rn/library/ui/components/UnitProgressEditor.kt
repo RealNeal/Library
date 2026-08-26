@@ -29,11 +29,11 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.rn.library.R
 import com.rn.library.data.UnitProgress
 import com.rn.library.data.WorkType
-import com.rn.library.ui.LocalStrings
-import com.rn.library.ui.Strings
 
 @Composable
 fun UnitProgressEditor(
@@ -47,11 +47,10 @@ fun UnitProgressEditor(
     labelColor: Color,
     modifier: Modifier = Modifier
 ) {
-    val strings = LocalStrings.current
     val supportsUnits = workType in listOf(WorkType.BOOK, WorkType.MANGA, WorkType.SERIES, WorkType.ANIME)
     if (!supportsUnits) return
 
-    val unitPrefix = unitPrefixLabel(strings, workType)
+    val unitPrefix = unitPrefixLabel(workType)
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
@@ -60,9 +59,9 @@ fun UnitProgressEditor(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(strings.progressByUnits, color = labelColor, style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.progress_by_units), color = labelColor, style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    strings.unitProgressHint,
+                    stringResource(R.string.unit_progress_hint),
                     color = labelColor.copy(alpha = 0.65f),
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -78,7 +77,7 @@ fun UnitProgressEditor(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(strings.generateUnitsFromCount.format(unitCountHint))
+                    Text(stringResource(R.string.generate_units_from_count, unitCountHint))
                 }
             }
 
@@ -93,8 +92,7 @@ fun UnitProgressEditor(
                     },
                     fieldBg = fieldBg,
                     labelColor = labelColor,
-                    workType = workType,
-                    strings = strings
+                    workType = workType
                 )
             }
 
@@ -107,7 +105,7 @@ fun UnitProgressEditor(
                 }
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, tint = labelColor)
-                Text(strings.addUnit, color = labelColor)
+                Text(stringResource(R.string.add_unit), color = labelColor)
             }
         }
     }
@@ -120,12 +118,11 @@ private fun UnitProgressRow(
     onRemove: () -> Unit,
     fieldBg: Color,
     labelColor: Color,
-    workType: WorkType,
-    strings: Strings
+    workType: WorkType
 ) {
     val completedLabel = when (workType) {
-        WorkType.SERIES -> strings.watched
-        else -> strings.unitCompleted
+        WorkType.SERIES -> stringResource(R.string.watched)
+        else -> stringResource(R.string.unit_completed)
     }
     val accentColor = MaterialTheme.colorScheme.primary
     val colors = TextFieldDefaults.colors(
@@ -155,14 +152,14 @@ private fun UnitProgressRow(
             OutlinedTextField(
                 value = unit.unitName,
                 onValueChange = { onChange(unit.copy(unitName = it)) },
-                label = { Text(strings.unitName) },
+                label = { Text(stringResource(R.string.unit_name)) },
                 modifier = Modifier
                     .weight(1f),
                 singleLine = true,
                 colors = colors
             )
             IconButton(onClick = onRemove) {
-                Icon(Icons.Default.Close, contentDescription = strings.delete, tint = labelColor)
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.delete), tint = labelColor)
             }
         }
         Row(
@@ -183,7 +180,7 @@ private fun UnitProgressRow(
                 numericValue = unit.total,
                 onNumericChange = { onChange(unit.copy(total = it)) },
                 emptyAsZero = false,
-                label = strings.unitTotal,
+                label = stringResource(R.string.unit_total),
                 modifier = Modifier.weight(1f),
                 colors = colors,
             )
@@ -256,9 +253,10 @@ internal fun parseUnitDecimalInput(text: String, emptyAsZero: Boolean): Double? 
     return trimmed.toDoubleOrNull()?.coerceAtLeast(0.0)
 }
 
-private fun unitPrefixLabel(strings: Strings, type: WorkType): String = when (type) {
-    WorkType.BOOK, WorkType.MANGA -> strings.volumeUnitPrefix
-    WorkType.SERIES, WorkType.ANIME -> strings.seasonUnitPrefix
+@Composable
+private fun unitPrefixLabel(type: WorkType): String = when (type) {
+    WorkType.BOOK, WorkType.MANGA -> stringResource(R.string.volume_unit_prefix)
+    WorkType.SERIES, WorkType.ANIME -> stringResource(R.string.season_unit_prefix)
 }
 
 fun buildDefaultUnits(count: Int, prefix: String): List<UnitProgress> =

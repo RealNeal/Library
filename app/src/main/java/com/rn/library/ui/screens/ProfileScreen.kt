@@ -50,6 +50,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -69,6 +70,7 @@ import kotlinx.coroutines.withContext
 import android.net.Uri
 import android.content.Intent
 import android.widget.Toast
+import com.rn.library.R
 import com.rn.library.data.ActivityDeltaEvent
 import com.rn.library.data.ActivityStatisticsFormat
 import com.rn.library.data.Work
@@ -78,7 +80,8 @@ import com.rn.library.data.WorkType
 import com.rn.library.data.readProgressUnits
 import com.rn.library.data.watchedProgressUnits
 import com.rn.library.ui.Language
-import com.rn.library.ui.LocalStrings
+import com.rn.library.ui.workStatusLabel
+import com.rn.library.ui.workTypeLabel
 import com.rn.library.ui.theme.MainBackgroundColor
 import com.rn.library.ui.theme.ProfileChartAccentColor
 import com.rn.library.ui.theme.TitleColorBetween
@@ -130,7 +133,6 @@ fun ProfileScreen(
     works: List<Work> = emptyList(),
     modifier: Modifier = Modifier
 ) {
-    val strings = LocalStrings.current
     val mainBackgroundColor = MainBackgroundColor()
     val titleColorBetween = TitleColorBetween()
     val dynamicScheme = MaterialTheme.colorScheme
@@ -142,6 +144,16 @@ fun ProfileScreen(
             Color.White
         }
     val context = LocalContext.current
+    val importNothingImported = stringResource(R.string.import_nothing_imported)
+    val booksFolderName = stringResource(R.string.books_folder)
+    val animeFolderName = stringResource(R.string.anime_folder)
+    val mangaFolderName = stringResource(R.string.manga_folder)
+    val seriesFolderName = stringResource(R.string.series_folder)
+    val bookCoversFolderName = stringResource(R.string.book_covers_folder)
+    val animeCoversFolderName = stringResource(R.string.anime_covers_folder)
+    val mangaCoversFolderName = stringResource(R.string.manga_covers_folder)
+    val seriesCoversFolderName = stringResource(R.string.series_covers_folder)
+    val exportErrorText = stringResource(R.string.export_error)
     val repository = remember { WorkRepository(context) }
     var localWorks by remember { mutableStateOf(works) }
 
@@ -175,7 +187,7 @@ fun ProfileScreen(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris: List<Uri> ->
         if (uris.isEmpty()) {
-            Toast.makeText(context, strings.importNothingImported, Toast.LENGTH_LONG).show()
+            Toast.makeText(context, importNothingImported, Toast.LENGTH_LONG).show()
             return@rememberLauncherForActivityResult
         }
         coroutineScope.launch {
@@ -201,11 +213,11 @@ fun ProfileScreen(
             val msg = if (ok == 0 && failedNames.isNotEmpty()) {
                 val preview = failedNames.take(2).joinToString(", ")
                 val tail = if (failedNames.size > 2) " +${failedNames.size - 2}" else ""
-                "${strings.importNothingImported}. Ошибки: $preview$tail"
+                "${importNothingImported}. Ошибки: $preview$tail"
             } else if (ok == 0) {
-                strings.importNothingImported
+                importNothingImported
             } else {
-                val base = strings.importBackupSummary.format(ok, total)
+                val base = context.getString(R.string.import_backup_summary, ok, total)
                 if (failedNames.isNotEmpty()) {
                     val preview = failedNames.take(2).joinToString(", ")
                     val tail = if (failedNames.size > 2) " +${failedNames.size - 2}" else ""
@@ -221,7 +233,7 @@ fun ProfileScreen(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { treeUri: Uri? ->
         if (treeUri == null) {
-            Toast.makeText(context, strings.importNothingImported, Toast.LENGTH_LONG).show()
+            Toast.makeText(context, importNothingImported, Toast.LENGTH_LONG).show()
             return@rememberLauncherForActivityResult
         }
         coroutineScope.launch {
@@ -237,14 +249,14 @@ fun ProfileScreen(
                 repository.importExportedBackupsFromTree(
                     context = context,
                     treeUri = treeUri,
-                    booksFolder = strings.booksFolder,
-                    animeFolder = strings.animeFolder,
-                    mangaFolder = strings.mangaFolder,
-                    seriesFolder = strings.seriesFolder,
-                    bookCoversFolder = strings.bookCoversFolder,
-                    animeCoversFolder = strings.animeCoversFolder,
-                    mangaCoversFolder = strings.mangaCoversFolder,
-                    seriesCoversFolder = strings.seriesCoversFolder,
+                    booksFolder = booksFolderName,
+                    animeFolder = animeFolderName,
+                    mangaFolder = mangaFolderName,
+                    seriesFolder = seriesFolderName,
+                    bookCoversFolder = bookCoversFolderName,
+                    animeCoversFolder = animeCoversFolderName,
+                    mangaCoversFolder = mangaCoversFolderName,
+                    seriesCoversFolder = seriesCoversFolderName,
                 )
             }
             val updated = repository.getAllWorks()
@@ -254,11 +266,11 @@ fun ProfileScreen(
             val msg = if (ok == 0 && failedNames.isNotEmpty()) {
                 val preview = failedNames.take(2).joinToString(", ")
                 val tail = if (failedNames.size > 2) " +${failedNames.size - 2}" else ""
-                "${strings.importNothingImported}. Ошибки: $preview$tail"
+                "${importNothingImported}. Ошибки: $preview$tail"
             } else if (ok == 0) {
-                strings.importNothingImported
+                importNothingImported
             } else {
-                val base = strings.importBackupSummary.format(ok, total)
+                val base = context.getString(R.string.import_backup_summary, ok, total)
                 if (failedNames.isNotEmpty()) {
                     val preview = failedNames.take(2).joinToString(", ")
                     val tail = if (failedNames.size > 2) " +${failedNames.size - 2}" else ""
@@ -318,7 +330,7 @@ fun ProfileScreen(
                 )
             ) {
                 Text(
-                    text = strings.addWork,
+                    text = stringResource(R.string.add_work),
                     color = profileSectionTextColor,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -334,14 +346,14 @@ fun ProfileScreen(
                         coroutineScope.launch {
                             val worksExportPath = withContext(Dispatchers.IO) {
                                 repository.exportWorksToDownloads(
-                                    booksFolder = strings.booksFolder,
-                                    animeFolder = strings.animeFolder,
-                                    mangaFolder = strings.mangaFolder,
-                                    seriesFolder = strings.seriesFolder,
-                                    bookCoversFolder = strings.bookCoversFolder,
-                                    animeCoversFolder = strings.animeCoversFolder,
-                                    mangaCoversFolder = strings.mangaCoversFolder,
-                                    seriesCoversFolder = strings.seriesCoversFolder
+                                    booksFolder = booksFolderName,
+                                    animeFolder = animeFolderName,
+                                    mangaFolder = mangaFolderName,
+                                    seriesFolder = seriesFolderName,
+                                    bookCoversFolder = bookCoversFolderName,
+                                    animeCoversFolder = animeCoversFolderName,
+                                    mangaCoversFolder = mangaCoversFolderName,
+                                    seriesCoversFolder = seriesCoversFolderName
                                 )
                             }
 
@@ -354,7 +366,7 @@ fun ProfileScreen(
                             } else {
                                 Toast.makeText(
                                     context,
-                                    strings.exportError,
+                                    exportErrorText,
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
@@ -366,7 +378,7 @@ fun ProfileScreen(
                 )
             ) {
                 Text(
-                    text = strings.exportFiles,
+                    text = stringResource(R.string.export_files),
                     color = profileSectionTextColor,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -385,7 +397,7 @@ fun ProfileScreen(
                 colors = CardDefaults.cardColors(containerColor = profileSectionCardColor)
             ) {
                 Text(
-                    text = strings.importBackup,
+                    text = stringResource(R.string.import_backup),
                     color = profileSectionTextColor,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -396,7 +408,7 @@ fun ProfileScreen(
             if (showImportDialog) {
                 AlertDialog(
                     onDismissRequest = { showImportDialog = false },
-                    title = { Text(strings.importDialogTitle, color = titleColorBetween) },
+                    title = { Text(stringResource(R.string.import_dialog_title), color = titleColorBetween) },
                     confirmButton = {
                         TextButton(
                             onClick = {
@@ -413,7 +425,7 @@ fun ProfileScreen(
                                 )
                             }
                         ) {
-                            Text(strings.importPickBooks)
+                            Text(stringResource(R.string.import_pick_books))
                         }
                     },
                     dismissButton = {
@@ -423,7 +435,7 @@ fun ProfileScreen(
                                 importExportedLauncher.launch(null)
                             }
                         ) {
-                            Text(strings.importFromExported)
+                            Text(stringResource(R.string.import_from_exported))
                         }
                     }
                 )
@@ -437,7 +449,7 @@ fun ProfileScreen(
                 colors = CardDefaults.cardColors(containerColor = profileSectionCardColor)
             ) {
                 Text(
-                    text = strings.settings,
+                    text = stringResource(R.string.settings),
                     color = profileSectionTextColor,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -552,7 +564,6 @@ private fun StatisticsCard(
     notesCount: Int = 0,
     currentLanguage: Language = Language.ENGLISH
 ) {
-    val strings = LocalStrings.current
     var selectedTypeFilter by remember { mutableStateOf<WorkType?>(null) }
 
     val computedStats = remember(works, activityEvents, selectedTypeFilter) {
@@ -624,7 +635,7 @@ private fun StatisticsCard(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = strings.statistics,
+                text = stringResource(R.string.statistics),
                 color = titleColorBetween,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold
@@ -633,7 +644,7 @@ private fun StatisticsCard(
             // Диаграмма по типам произведений (монохромная)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = strings.byType,
+                text = stringResource(R.string.by_type),
                 color = titleColorBetween.copy(alpha = 0.8f),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
@@ -641,11 +652,11 @@ private fun StatisticsCard(
 
             DonutChartWithLegend(
                 slices = buildList {
-                    if (booksCount > 0) add(DonutSlice(strings.books, booksCount, typeColors[WorkType.BOOK] ?: titleColorBetween))
-                    if (animeCount > 0) add(DonutSlice(strings.anime, animeCount, typeColors[WorkType.ANIME] ?: titleColorBetween))
-                    if (mangaCount > 0) add(DonutSlice(strings.manga, mangaCount, typeColors[WorkType.MANGA] ?: titleColorBetween))
-                    if (seriesCount > 0) add(DonutSlice(strings.tvSeries, seriesCount, typeColors[WorkType.SERIES] ?: titleColorBetween))
-                    if (notesCount > 0) add(DonutSlice(strings.notes, notesCount, notesColor))
+                    if (booksCount > 0) add(DonutSlice(stringResource(R.string.books), booksCount, typeColors[WorkType.BOOK] ?: titleColorBetween))
+                    if (animeCount > 0) add(DonutSlice(stringResource(R.string.anime), animeCount, typeColors[WorkType.ANIME] ?: titleColorBetween))
+                    if (mangaCount > 0) add(DonutSlice(stringResource(R.string.manga), mangaCount, typeColors[WorkType.MANGA] ?: titleColorBetween))
+                    if (seriesCount > 0) add(DonutSlice(stringResource(R.string.tv_series), seriesCount, typeColors[WorkType.SERIES] ?: titleColorBetween))
+                    if (notesCount > 0) add(DonutSlice(stringResource(R.string.notes), notesCount, notesColor))
                 },
                 total = totalItems,
                 showColorDots = true,
@@ -655,7 +666,7 @@ private fun StatisticsCard(
             // Переключатель типов для статистики по статусам
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = strings.byStatus,
+                text = stringResource(R.string.by_status),
                 color = titleColorBetween.copy(alpha = 0.8f),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
@@ -665,11 +676,11 @@ private fun StatisticsCard(
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val spacing = 6.dp
                 val typeButtons = listOf<Pair<WorkType?, String>>(
-                    null to strings.allTypes,
-                    WorkType.BOOK to strings.books,
-                    WorkType.ANIME to strings.anime,
-                    WorkType.MANGA to strings.manga,
-                    WorkType.SERIES to strings.tvSeries
+                    null to stringResource(R.string.all_types),
+                    WorkType.BOOK to stringResource(R.string.books),
+                    WorkType.ANIME to stringResource(R.string.anime),
+                    WorkType.MANGA to stringResource(R.string.manga),
+                    WorkType.SERIES to stringResource(R.string.tv_series)
                 )
                 val weightSum = typeButtons.sumOf { (_, label) -> (label.length + 4).coerceAtLeast(6) }
 
@@ -720,12 +731,12 @@ private fun StatisticsCard(
 
             // Определяем какие статусы показывать в зависимости от выбранного типа
             val statusLabels = mapOf(
-                WorkStatus.IN_PLANS to strings.inPlans,
-                WorkStatus.READING to strings.reading,
-                WorkStatus.WATCHING to strings.watching,
-                WorkStatus.READ to strings.read,
-                WorkStatus.WATCHED to strings.watched,
-                WorkStatus.ABANDONED to strings.abandoned
+                WorkStatus.IN_PLANS to stringResource(R.string.in_plans),
+                WorkStatus.READING to stringResource(R.string.reading),
+                WorkStatus.WATCHING to stringResource(R.string.watching),
+                WorkStatus.READ to stringResource(R.string.read),
+                WorkStatus.WATCHED to stringResource(R.string.watched),
+                WorkStatus.ABANDONED to stringResource(R.string.abandoned)
             )
             
             // Для книг и манги показываем READING и READ, для остальных - WATCHING и WATCHED
@@ -761,12 +772,12 @@ private fun StatisticsCard(
                                                (byStatus[WorkStatus.WATCHED]?.size ?: 0)
                     val activeLabel = if (selectedTypeFilter == null) {
                         // При "Все" используем общий ярлык
-                        strings.watching // или можно сделать "Читаю/Смотрю"
+                        stringResource(R.string.watching) // или можно сделать "Читаю/Смотрю"
                     } else {
                         statusLabels[WorkStatus.WATCHING] ?: ""
                     }
                     val completedLabel = if (selectedTypeFilter == null) {
-                        strings.watched // или можно сделать "Прочитано/Просмотрено"
+                        stringResource(R.string.watched) // или можно сделать "Прочитано/Просмотрено"
                     } else {
                         statusLabels[WorkStatus.WATCHED] ?: ""
                     }
@@ -805,25 +816,25 @@ private fun StatisticsCard(
 
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = strings.statsUnitsTitle,
+                text = stringResource(R.string.stats_units_title),
                 color = titleColorBetween.copy(alpha = 0.8f),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )
             StatisticRow(
-                label = strings.progressReadChapters,
+                label = stringResource(R.string.progress_read_chapters),
                 value = totalReadUnits.toString(),
                 titleColorBetween = titleColorBetween
             )
             StatisticRow(
-                label = strings.progressWatchedEpisodes,
+                label = stringResource(R.string.progress_watched_episodes),
                 value = totalWatchedUnits.toString(),
                 titleColorBetween = titleColorBetween
             )
 
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = strings.statsHeatmapTitle,
+                text = stringResource(R.string.stats_heatmap_title),
                 color = titleColorBetween.copy(alpha = 0.8f),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
@@ -837,7 +848,7 @@ private fun StatisticsCard(
 
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = strings.statsPeriodActivityTitle,
+                text = stringResource(R.string.stats_period_activity_title),
                 color = titleColorBetween.copy(alpha = 0.8f),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
@@ -1117,7 +1128,6 @@ private fun ActivityHeatmap(
     statsTint: Color,
     currentLanguage: Language
 ) {
-    val strings = LocalStrings.current
     val locale = if (currentLanguage == Language.RUSSIAN) {
         Locale.forLanguageTag("ru-RU")
     } else {
@@ -1221,13 +1231,13 @@ private fun ActivityHeatmap(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("${strings.progressReadChapters}: ${totals.readUnits.roundToInt()}", color = titleColorBetween.copy(alpha = 0.9f))
-                    Text("${strings.progressWatchedEpisodes}: ${totals.watchedUnits.roundToInt()}", color = titleColorBetween.copy(alpha = 0.9f))
+                    Text("${stringResource(R.string.progress_read_chapters)}: ${totals.readUnits.roundToInt()}", color = titleColorBetween.copy(alpha = 0.9f))
+                    Text("${stringResource(R.string.progress_watched_episodes)}: ${totals.watchedUnits.roundToInt()}", color = titleColorBetween.copy(alpha = 0.9f))
                 }
             },
             confirmButton = {
                 TextButton(onClick = { selected = null }) {
-                    Text(strings.cancel)
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -1242,7 +1252,6 @@ private fun PeriodActivityChart(
     statsFillColor: Color,
     currentLanguage: Language
 ) {
-    val strings = LocalStrings.current
     val locale = if (currentLanguage == Language.RUSSIAN) {
         Locale.forLanguageTag("ru-RU")
     } else {
@@ -1306,9 +1315,9 @@ private fun PeriodActivityChart(
     }
     var selectedBar by remember { mutableStateOf<PeriodBarData?>(null) }
     val title = when (mode) {
-        PeriodMode.DAY -> strings.periodDays
-        PeriodMode.WEEK -> strings.periodWeeks
-        PeriodMode.MONTH -> strings.periodMonths
+        PeriodMode.DAY -> stringResource(R.string.period_days)
+        PeriodMode.WEEK -> stringResource(R.string.period_weeks)
+        PeriodMode.MONTH -> stringResource(R.string.period_months)
     }
     val maxBarUnits = remember(bars) {
         bars.maxOfOrNull { it.allUnits }?.coerceAtLeast(1.0) ?: 1.0
@@ -1385,13 +1394,13 @@ private fun PeriodActivityChart(
             title = { Text(titleText, color = titleColorBetween) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("${strings.progressReadChapters}: ${bar.readUnits.roundToInt()}", color = titleColorBetween.copy(alpha = 0.9f))
-                    Text("${strings.progressWatchedEpisodes}: ${bar.watchedUnits.roundToInt()}", color = titleColorBetween.copy(alpha = 0.9f))
+                    Text("${stringResource(R.string.progress_read_chapters)}: ${bar.readUnits.roundToInt()}", color = titleColorBetween.copy(alpha = 0.9f))
+                    Text("${stringResource(R.string.progress_watched_episodes)}: ${bar.watchedUnits.roundToInt()}", color = titleColorBetween.copy(alpha = 0.9f))
                 }
             },
             confirmButton = {
                 TextButton(onClick = { selectedBar = null }) {
-                    Text(strings.cancel)
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
