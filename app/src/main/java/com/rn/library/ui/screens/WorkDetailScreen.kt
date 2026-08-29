@@ -50,6 +50,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.window.Dialog
 import com.rn.library.ui.AppSettings
 import com.rn.library.ui.components.CoverCarousel
+import com.rn.library.ui.components.bottomNavigationClearance
 import com.rn.library.ui.components.ScrollIsolatedMultilineField
 import com.rn.library.ui.components.filterUnitDecimalInput
 import com.rn.library.ui.components.formatEditableUnitNumber
@@ -1026,7 +1027,7 @@ fun WorkDetailScreen(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .padding(bottom = 110.dp, start = 12.dp, end = 12.dp)
+                        .padding(bottom = bottomNavigationClearance(), start = 12.dp, end = 12.dp)
                         .clickable(
                             indication = null,
                             interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }

@@ -77,6 +77,7 @@ import com.rn.library.ui.components.StaleUpdateConfirmDialog
 import com.rn.library.ui.components.ActivityStatsConfirmDialog
 import com.rn.library.ui.components.AppNavigationRail
 import com.rn.library.ui.components.BottomNavigationBar
+import com.rn.library.ui.components.bottomNavigationClearance
 import com.rn.library.ui.components.NavigationItem
 import com.rn.library.ui.components.SearchBar
 import com.rn.library.ui.components.SunIcon
@@ -396,7 +397,6 @@ fun LibraryScreen(
         if (changed) sessionCoverByWorkId = selectedMap
     }
 
-    var lastSelectedWork by remember { mutableStateOf<Work?>(null) }
     var lastExpandedCoverWork by remember { mutableStateOf<Work?>(null) }
 
     // Reset detail search when leaving work details и возвращаем хедер (строку поиска) при входе в детали
@@ -405,7 +405,6 @@ fun LibraryScreen(
             detailSearchExpanded = false
             detailSearchQuery = ""
         } else {
-            lastSelectedWork = selectedWork
             // При открытии экрана просмотра произведения гарантированно показываем хедер,
             // даже если он был скрыт прокруткой.
             isHeaderVisible = true
@@ -515,6 +514,7 @@ fun LibraryScreen(
 
     val windowInfo = rememberWindowSizeInfo()
         val useNavRail = windowInfo.isLandscape
+        val bottomBarClearance = if (useNavRail) 16.dp else bottomNavigationClearance()
 
         val view = LocalView.current
         DisposableEffect(windowInfo.isLandscape, windowInfo.heightClass) {
@@ -1102,7 +1102,7 @@ fun LibraryScreen(
                                                                 start = 8.dp,
                                                                 end = 8.dp,
                                                                 top = 2.dp,
-                                                                bottom = if (!useNavRail) 118.dp else 16.dp
+                                                                bottom = bottomBarClearance
                                                             ),
                                                             verticalArrangement = Arrangement.spacedBy(
                                                                 4.dp
@@ -1143,7 +1143,7 @@ fun LibraryScreen(
                                                                     start = 16.dp,
                                                                     end = 16.dp,
                                                                     top = 8.dp,
-                                                                    bottom = if (!useNavRail) 118.dp else 16.dp
+                                                                    bottom = bottomBarClearance
                                                                 ),
                                                                 verticalArrangement = Arrangement.spacedBy(
                                                                     8.dp
@@ -1172,17 +1172,7 @@ fun LibraryScreen(
                                 }
 
                                 // Work Detail Screen (поверх списка, но внутри контентного Box, чтобы фон-обложка был виден)
-                                androidx.compose.animation.AnimatedVisibility(
-                                    visible = selectedWork != null,
-                                    enter = fadeIn(animationSpec = tween(200, easing = FastOutSlowInEasing)) +
-                                            slideInVertically(
-                                                initialOffsetY = { it / 3 },
-                                                animationSpec = tween(220, easing = FastOutSlowInEasing)
-                                            ),
-                                    exit = ExitTransition.None
-                                ) {
-                                    val workToDisplay = selectedWork ?: lastSelectedWork
-                                    workToDisplay?.let { work ->
+                                selectedWork?.let { work ->
                                         if (detailSearchExpanded) {
                                             val filtered = works
                                                 .filter {
@@ -1308,7 +1298,6 @@ fun LibraryScreen(
                                                 onScrollStateChange = null
                                             )
                                         }
-                                    }
                                 }
                             }
                         }

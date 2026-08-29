@@ -80,6 +80,7 @@ import com.rn.library.data.WorkType
 import com.rn.library.data.readProgressUnits
 import com.rn.library.data.watchedProgressUnits
 import com.rn.library.ui.Language
+import com.rn.library.ui.components.bottomNavigationClearance
 import com.rn.library.ui.workStatusLabel
 import com.rn.library.ui.workTypeLabel
 import com.rn.library.ui.theme.MainBackgroundColor
@@ -145,14 +146,6 @@ fun ProfileScreen(
         }
     val context = LocalContext.current
     val importNothingImported = stringResource(R.string.import_nothing_imported)
-    val booksFolderName = stringResource(R.string.books_folder)
-    val animeFolderName = stringResource(R.string.anime_folder)
-    val mangaFolderName = stringResource(R.string.manga_folder)
-    val seriesFolderName = stringResource(R.string.series_folder)
-    val bookCoversFolderName = stringResource(R.string.book_covers_folder)
-    val animeCoversFolderName = stringResource(R.string.anime_covers_folder)
-    val mangaCoversFolderName = stringResource(R.string.manga_covers_folder)
-    val seriesCoversFolderName = stringResource(R.string.series_covers_folder)
     val exportErrorText = stringResource(R.string.export_error)
     val repository = remember { WorkRepository(context) }
     var localWorks by remember { mutableStateOf(works) }
@@ -249,14 +242,6 @@ fun ProfileScreen(
                 repository.importExportedBackupsFromTree(
                     context = context,
                     treeUri = treeUri,
-                    booksFolder = booksFolderName,
-                    animeFolder = animeFolderName,
-                    mangaFolder = mangaFolderName,
-                    seriesFolder = seriesFolderName,
-                    bookCoversFolder = bookCoversFolderName,
-                    animeCoversFolder = animeCoversFolderName,
-                    mangaCoversFolder = mangaCoversFolderName,
-                    seriesCoversFolder = seriesCoversFolderName,
                 )
             }
             val updated = repository.getAllWorks()
@@ -345,16 +330,7 @@ fun ProfileScreen(
                     .clickable {
                         coroutineScope.launch {
                             val worksExportPath = withContext(Dispatchers.IO) {
-                                repository.exportWorksToDownloads(
-                                    booksFolder = booksFolderName,
-                                    animeFolder = animeFolderName,
-                                    mangaFolder = mangaFolderName,
-                                    seriesFolder = seriesFolderName,
-                                    bookCoversFolder = bookCoversFolderName,
-                                    animeCoversFolder = animeCoversFolderName,
-                                    mangaCoversFolder = mangaCoversFolderName,
-                                    seriesCoversFolder = seriesCoversFolderName
-                                )
+                                repository.exportWorksToDownloads()
                             }
 
                             if (worksExportPath != null) {
@@ -459,7 +435,7 @@ fun ProfileScreen(
 
             // Bottom spacer to ensure content scrolls cleanly
             val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-            Spacer(modifier = Modifier.height(if (isLandscape) 16.dp else 100.dp))
+            Spacer(modifier = Modifier.height(if (isLandscape) 16.dp else bottomNavigationClearance()))
         }
         AnimatedVisibility(
             visible = showSettings,

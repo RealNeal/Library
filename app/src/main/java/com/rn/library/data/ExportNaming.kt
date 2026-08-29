@@ -42,10 +42,10 @@ fun parseExportCoverIndex(exportBase: String, fileBase: String): Int? {
 
 /** Все известные имена папок обложек по типу произведения (EN + RU). */
 fun knownCoverFolderNames(type: WorkType): List<String> = when (type) {
-    WorkType.BOOK -> listOf("Book covers", "Обложки книг")
-    WorkType.ANIME -> listOf("Anime covers", "Обложки аниме")
-    WorkType.MANGA -> listOf("Manga covers", "Обложки манги")
-    WorkType.SERIES -> listOf("Series covers", "Обложки сериалов")
+    WorkType.BOOK -> listOf("Обложки книг", "Book covers")
+    WorkType.ANIME -> listOf("Обложки аниме", "Anime covers")
+    WorkType.MANGA -> listOf("Обложки манги", "Manga covers")
+    WorkType.SERIES -> listOf("Обложки сериалов", "Series covers")
 }
 
 fun isInKnownCoverFolder(relativePath: String, type: WorkType): Boolean {

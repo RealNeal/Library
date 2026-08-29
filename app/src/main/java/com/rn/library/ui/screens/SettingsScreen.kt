@@ -22,6 +22,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,12 +57,14 @@ import com.rn.library.data.WorkRepository
 import com.rn.library.ui.AppSettings
 import com.rn.library.ui.Language
 import com.rn.library.ui.components.HsvColorPicker
+import com.rn.library.ui.components.bottomNavigationClearance
 import com.rn.library.ui.theme.MainBackgroundColor
 import com.rn.library.ui.theme.TitleColorBetween
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
@@ -294,11 +300,56 @@ fun SettingsScreen(
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold
                     )
-                    languageSwitchRow(stringResource(R.string.english), currentLanguage == Language.ENGLISH, currentTheme, dynamicColorsEnabled, settingsCardTextColor) {
-                        onLanguageChange(Language.ENGLISH)
+                    var languageMenuExpanded by remember { mutableStateOf(false) }
+                    val selectedLanguageLabel = when (currentLanguage) {
+                        Language.ENGLISH -> stringResource(R.string.english)
+                        Language.RUSSIAN -> stringResource(R.string.russian)
                     }
-                    languageSwitchRow(stringResource(R.string.russian), currentLanguage == Language.RUSSIAN, currentTheme, dynamicColorsEnabled, settingsCardTextColor) {
-                        onLanguageChange(Language.RUSSIAN)
+                    ExposedDropdownMenuBox(
+                        expanded = languageMenuExpanded,
+                        onExpandedChange = { languageMenuExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedLanguageLabel,
+                            onValueChange = {},
+                            readOnly = true,
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth(),
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageMenuExpanded)
+                            },
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = settingsInsetSurfaceColor,
+                                unfocusedContainerColor = settingsInsetSurfaceColor,
+                                disabledContainerColor = settingsInsetSurfaceColor,
+                                focusedIndicatorColor = settingsCardTextColor.copy(alpha = 0.7f),
+                                unfocusedIndicatorColor = settingsCardTextColor.copy(alpha = 0.4f),
+                                focusedTextColor = settingsCardTextColor,
+                                unfocusedTextColor = settingsCardTextColor,
+                                focusedTrailingIconColor = settingsCardTextColor,
+                                unfocusedTrailingIconColor = settingsCardTextColor
+                            )
+                        )
+                        ExposedDropdownMenu(
+                            expanded = languageMenuExpanded,
+                            onDismissRequest = { languageMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.english)) },
+                                onClick = {
+                                    onLanguageChange(Language.ENGLISH)
+                                    languageMenuExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.russian)) },
+                                onClick = {
+                                    onLanguageChange(Language.RUSSIAN)
+                                    languageMenuExpanded = false
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -394,7 +445,7 @@ fun SettingsScreen(
                 }
             }
             val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-            Spacer(modifier = Modifier.height(if (isLandscape) 16.dp else 110.dp))
+            Spacer(modifier = Modifier.height(if (isLandscape) 16.dp else bottomNavigationClearance()))
         }
     }
 }
@@ -417,29 +468,6 @@ private fun tabSwitchRow(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            colors = switchColors(currentTheme, dynamicColorsEnabled)
-        )
-    }
-}
-
-@Composable
-private fun languageSwitchRow(
-    label: String,
-    checked: Boolean,
-    currentTheme: AppTheme,
-    dynamicColorsEnabled: Boolean,
-    textColor: Color,
-    onSelect: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text = label, color = textColor, fontSize = 16.sp)
-        Switch(
-            checked = checked,
-            onCheckedChange = { if (it) onSelect() },
             colors = switchColors(currentTheme, dynamicColorsEnabled)
         )
     }

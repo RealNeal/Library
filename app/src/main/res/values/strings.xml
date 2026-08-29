@@ -36,6 +36,8 @@
     <string name="episodes">Episodes</string>
     <string name="seasons">Seasons</string>
     <string name="year">Year</string>
+    <string name="year_placeholder">YYYY or YYYY - YYYY</string>
+    <string name="book">Book</string>
     <string name="country">Country</string>
     <string name="status">Status</string>
     <string name="cover">Cover</string>

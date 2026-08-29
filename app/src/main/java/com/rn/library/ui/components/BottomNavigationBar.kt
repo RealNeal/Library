@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.animation.animateColorAsState
@@ -64,6 +65,17 @@ internal fun saturatedAccent(base: Color, darkTheme: Boolean, selected: Boolean)
     return Color.hsv(hsv[0], hsv[1], hsv[2], base.alpha)
 }
 
+internal fun bottomNavInnerHeight(compactHeight: Boolean) =
+    if (compactHeight) 68.dp else 102.dp
+
+@Composable
+fun bottomNavigationClearance(): Dp {
+    val windowInfo = rememberWindowSizeInfo()
+    val compact = windowInfo.isLandscape || windowInfo.heightClass == WindowHeightClass.COMPACT
+    return bottomNavInnerHeight(compact) +
+        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+}
+
 @Composable
 fun BottomNavigationBar(
     selectedItem: NavigationItem,
@@ -78,8 +90,8 @@ fun BottomNavigationBar(
 ) {
     val windowInfo = rememberWindowSizeInfo()
     val isCompactHeight = windowInfo.isLandscape || windowInfo.heightClass == WindowHeightClass.COMPACT
-    val barHeight = if (isCompactHeight) 68.dp else 118.dp
-    val bottomPadding = if (isCompactHeight) 8.dp else 30.dp
+    val barHeight = if (isCompactHeight) 60.dp else 92.dp
+    val bottomPadding = if (isCompactHeight) 8.dp else 10.dp
     val panelColor = PanelColor()
     val items = buildList {
         if (booksEnabled) add(NavigationItem.Books)
@@ -92,8 +104,9 @@ fun BottomNavigationBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(barHeight)
             .background(panelColor)
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .height(barHeight)
             .padding(bottom = bottomPadding),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
@@ -181,10 +194,10 @@ private fun NavigationButton(
                 imageVector = item.icon,
                 contentDescription = label,
                 tint = animatedIconColor,
-                modifier = Modifier.size(30.dp)
+                modifier = Modifier.size(28.dp)
             )
         }
-        Spacer(modifier = Modifier.height(1.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
             color = animatedLabelColor,

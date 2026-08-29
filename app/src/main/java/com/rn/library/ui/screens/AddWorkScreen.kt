@@ -297,6 +297,17 @@ fun AddWorkScreen(
     val seasonSpring = stringResource(R.string.spring)
     val seasonSummer = stringResource(R.string.summer)
     val seasonFall = stringResource(R.string.fall)
+    val typeBook = stringResource(R.string.book)
+    val typeAnime = stringResource(R.string.anime)
+    val typeManga = stringResource(R.string.manga)
+    val typeSeries = stringResource(R.string.tv_series)
+    val mangaTypeManga = stringResource(R.string.manga)
+    val mangaTypeManhwa = stringResource(R.string.manhwa)
+    val mangaTypeManhua = stringResource(R.string.manhua)
+    val seriesTypeTv = stringResource(R.string.tv_series)
+    val seriesTypeFilm = stringResource(R.string.film)
+    val seriesTypeCartoon = stringResource(R.string.cartoon)
+    val seriesTypeDrama = stringResource(R.string.drama)
 
     Box(
         modifier = modifier
@@ -375,20 +386,20 @@ fun AddWorkScreen(
             CustomDropdown(
                 label = stringResource(R.string.type),
                 value = when (type) {
-                    WorkType.BOOK -> "Книга"
-                    WorkType.ANIME -> "Аниме"
-                    WorkType.MANGA -> "Манга"
-                    WorkType.SERIES -> "Сериал"
+                    WorkType.BOOK -> typeBook
+                    WorkType.ANIME -> typeAnime
+                    WorkType.MANGA -> typeManga
+                    WorkType.SERIES -> typeSeries
                 },
-                items = listOf("Книга", "Аниме", "Манга", "Сериал"),
+                items = listOf(typeBook, typeAnime, typeManga, typeSeries),
                 expanded = typeDropdownExpanded,
                 onExpandedChange = { typeDropdownExpanded = it },
                 onItemSelected = { selected ->
                     type = when (selected) {
-                        "Книга" -> WorkType.BOOK
-                        "Аниме" -> WorkType.ANIME
-                        "Манга" -> WorkType.MANGA
-                        "Сериал" -> WorkType.SERIES
+                        typeBook -> WorkType.BOOK
+                        typeAnime -> WorkType.ANIME
+                        typeManga -> WorkType.MANGA
+                        typeSeries -> WorkType.SERIES
                         else -> WorkType.BOOK
                     }
                     typeDropdownExpanded = false
@@ -412,18 +423,18 @@ fun AddWorkScreen(
                 CustomDropdown(
                     label = stringResource(R.string.manga_type),
                     value = when (mangaType) {
-                        MangaType.MANGA -> "Манга"
-                        MangaType.MANHWA -> "Манхва"
-                        MangaType.MANHUA -> "Маньхуа"
+                        MangaType.MANGA -> mangaTypeManga
+                        MangaType.MANHWA -> mangaTypeManhwa
+                        MangaType.MANHUA -> mangaTypeManhua
                     },
-                    items = listOf("Манга", "Манхва", "Маньхуа"),
+                    items = listOf(mangaTypeManga, mangaTypeManhwa, mangaTypeManhua),
                     expanded = mangaTypeDropdownExpanded,
                     onExpandedChange = { mangaTypeDropdownExpanded = it },
                     onItemSelected = { selected ->
                         mangaType = when (selected) {
-                            "Манга" -> MangaType.MANGA
-                            "Манхва" -> MangaType.MANHWA
-                            "Маньхуа" -> MangaType.MANHUA
+                            mangaTypeManga -> MangaType.MANGA
+                            mangaTypeManhwa -> MangaType.MANHWA
+                            mangaTypeManhua -> MangaType.MANHUA
                             else -> MangaType.MANGA
                         }
                         mangaTypeDropdownExpanded = false
@@ -442,20 +453,20 @@ fun AddWorkScreen(
                 CustomDropdown(
                     label = stringResource(R.string.tv_series_type),
                     value = when (seriesType) {
-                        SeriesType.TV_SERIES -> "Сериал"
-                        SeriesType.FILM -> "Фильм"
-                        SeriesType.CARTOON -> "Мультфильм"
-                        SeriesType.DRAMA -> "Дорама"
+                        SeriesType.TV_SERIES -> seriesTypeTv
+                        SeriesType.FILM -> seriesTypeFilm
+                        SeriesType.CARTOON -> seriesTypeCartoon
+                        SeriesType.DRAMA -> seriesTypeDrama
                     },
-                    items = listOf("Сериал", "Фильм", "Мультфильм", "Дорама"),
+                    items = listOf(seriesTypeTv, seriesTypeFilm, seriesTypeCartoon, seriesTypeDrama),
                     expanded = seriesTypeDropdownExpanded,
                     onExpandedChange = { seriesTypeDropdownExpanded = it },
                     onItemSelected = { selected ->
                         seriesType = when (selected) {
-                            "Сериал" -> SeriesType.TV_SERIES
-                            "Фильм" -> SeriesType.FILM
-                            "Мультфильм" -> SeriesType.CARTOON
-                            "Дорама" -> SeriesType.DRAMA
+                            seriesTypeTv -> SeriesType.TV_SERIES
+                            seriesTypeFilm -> SeriesType.FILM
+                            seriesTypeCartoon -> SeriesType.CARTOON
+                            seriesTypeDrama -> SeriesType.DRAMA
                             else -> SeriesType.TV_SERIES
                         }
                         seriesTypeDropdownExpanded = false
@@ -713,7 +724,7 @@ fun AddWorkScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                placeholder = { Text("ГГГГ или ГГГГ - ГГГГ") },
+                placeholder = { Text(stringResource(R.string.year_placeholder)) },
                 colors = fieldColors
             )
 
