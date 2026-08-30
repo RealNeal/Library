@@ -46,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -80,7 +81,6 @@ import com.rn.library.data.WorkType
 import com.rn.library.data.readProgressUnits
 import com.rn.library.data.watchedProgressUnits
 import com.rn.library.ui.Language
-import com.rn.library.ui.components.bottomNavigationClearance
 import com.rn.library.ui.workStatusLabel
 import com.rn.library.ui.workTypeLabel
 import com.rn.library.ui.theme.MainBackgroundColor
@@ -163,9 +163,12 @@ fun ProfileScreen(
         activityEvents = withContext(Dispatchers.IO) { repository.loadActivityEvents() }
     }
 
-    var showSettings by remember { mutableStateOf(false) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
     var showGuide by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
+    var checkingUpdates by remember { mutableStateOf(false) }
+    var downloadingUpdate by remember { mutableStateOf(false) }
+    var availableRelease by remember { mutableStateOf<com.rn.library.update.GitHubRelease?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val onWorksUpdatedState = rememberUpdatedState(onWorksUpdated)
 
@@ -433,9 +436,129 @@ fun ProfileScreen(
                 )
             }
 
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !checkingUpdates && !downloadingUpdate) {
+                        checkingUpdates = true
+                        coroutineScope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                com.rn.library.update.GitHubUpdateChecker.check(context)
+                            }
+                            checkingUpdates = false
+                            when (result) {
+                                is com.rn.library.update.UpdateCheckResult.UpToDate -> {
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.update_up_to_date, result.currentVersion),
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                                is com.rn.library.update.UpdateCheckResult.Available -> {
+                                    availableRelease = result.release
+                                }
+                                is com.rn.library.update.UpdateCheckResult.Error -> {
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.update_error),
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
+                        }
+                    },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = profileSectionCardColor)
+            ) {
+                Text(
+                    text = if (checkingUpdates || downloadingUpdate) {
+                        stringResource(
+                            if (downloadingUpdate) R.string.update_downloading else R.string.update_checking
+                        )
+                    } else {
+                        stringResource(R.string.check_updates)
+                    },
+                    color = profileSectionTextColor,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+
+            availableRelease?.let { release ->
+                AlertDialog(
+                    onDismissRequest = { if (!downloadingUpdate) availableRelease = null },
+                    title = { Text(stringResource(R.string.update_available_title), color = titleColorBetween) },
+                    text = {
+                        Text(
+                            stringResource(
+                                R.string.update_available_message,
+                                com.rn.library.update.GitHubUpdateChecker.currentVersionName(context),
+                                release.tag
+                            )
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            enabled = !downloadingUpdate,
+                            onClick = {
+                                if (!com.rn.library.update.ApkInstaller.canInstallPackages(context)) {
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.update_install_permission),
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    com.rn.library.update.ApkInstaller.requestInstallPermission(context)
+                                    return@TextButton
+                                }
+                                if (release.apkUrl.isNullOrBlank()) {
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.update_no_apk),
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    return@TextButton
+                                }
+                                downloadingUpdate = true
+                                coroutineScope.launch {
+                                    val apkFile = java.io.File(
+                                        com.rn.library.update.GitHubUpdateChecker.updatesDir(context),
+                                        release.apkName ?: "app-release.apk"
+                                    )
+                                    val ok = withContext(Dispatchers.IO) {
+                                        com.rn.library.update.GitHubUpdateChecker.downloadApk(release, apkFile)
+                                    }
+                                    downloadingUpdate = false
+                                    availableRelease = null
+                                    if (ok) {
+                                        com.rn.library.update.ApkInstaller.install(context, apkFile)
+                                    } else {
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.update_error),
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                }
+                            }
+                        ) {
+                            Text(stringResource(R.string.update_download))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            enabled = !downloadingUpdate,
+                            onClick = { availableRelease = null }
+                        ) {
+                            Text(stringResource(R.string.cancel))
+                        }
+                    }
+                )
+            }
+
             // Bottom spacer to ensure content scrolls cleanly
             val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-            Spacer(modifier = Modifier.height(if (isLandscape) 16.dp else bottomNavigationClearance()))
+            Spacer(modifier = Modifier.height(if (isLandscape) 14.dp else 106.dp))
         }
         AnimatedVisibility(
             visible = showSettings,

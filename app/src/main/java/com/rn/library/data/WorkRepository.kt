@@ -1415,7 +1415,7 @@ class WorkRepository(private val context: Context) {
 
     companion object {
         const val LARGE_ACTIVITY_DELTA_THRESHOLD = 50
-        const val STALE_UPDATE_THRESHOLD_DAYS = 7
+        const val STALE_UPDATE_THRESHOLD_DAYS = 14
 
         fun generateId(): String = UUID.randomUUID().toString()
     }

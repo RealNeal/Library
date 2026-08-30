@@ -22,10 +22,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -64,7 +64,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
@@ -291,64 +290,58 @@ fun SettingsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(16.dp)
                 ) {
-                    Text(
-                        text = stringResource(R.string.language),
-                        color = settingsCardTextColor,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
                     var languageMenuExpanded by remember { mutableStateOf(false) }
                     val selectedLanguageLabel = when (currentLanguage) {
                         Language.ENGLISH -> stringResource(R.string.english)
                         Language.RUSSIAN -> stringResource(R.string.russian)
                     }
-                    ExposedDropdownMenuBox(
-                        expanded = languageMenuExpanded,
-                        onExpandedChange = { languageMenuExpanded = it }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { languageMenuExpanded = true },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedTextField(
-                            value = selectedLanguageLabel,
-                            onValueChange = {},
-                            readOnly = true,
-                            modifier = Modifier
-                                .menuAnchor()
-                                .fillMaxWidth(),
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageMenuExpanded)
-                            },
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = settingsInsetSurfaceColor,
-                                unfocusedContainerColor = settingsInsetSurfaceColor,
-                                disabledContainerColor = settingsInsetSurfaceColor,
-                                focusedIndicatorColor = settingsCardTextColor.copy(alpha = 0.7f),
-                                unfocusedIndicatorColor = settingsCardTextColor.copy(alpha = 0.4f),
-                                focusedTextColor = settingsCardTextColor,
-                                unfocusedTextColor = settingsCardTextColor,
-                                focusedTrailingIconColor = settingsCardTextColor,
-                                unfocusedTrailingIconColor = settingsCardTextColor
-                            )
+                        Text(
+                            text = stringResource(R.string.language),
+                            color = settingsCardTextColor,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
-                        ExposedDropdownMenu(
-                            expanded = languageMenuExpanded,
-                            onDismissRequest = { languageMenuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.english)) },
-                                onClick = {
-                                    onLanguageChange(Language.ENGLISH)
-                                    languageMenuExpanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.russian)) },
-                                onClick = {
-                                    onLanguageChange(Language.RUSSIAN)
-                                    languageMenuExpanded = false
-                                }
-                            )
+                        Box {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = selectedLanguageLabel,
+                                    color = settingsCardTextColor,
+                                    fontSize = 18.sp
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    tint = settingsCardTextColor
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = languageMenuExpanded,
+                                onDismissRequest = { languageMenuExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.english)) },
+                                    onClick = {
+                                        onLanguageChange(Language.ENGLISH)
+                                        languageMenuExpanded = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.russian)) },
+                                    onClick = {
+                                        onLanguageChange(Language.RUSSIAN)
+                                        languageMenuExpanded = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -359,25 +352,21 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = settingsSectionCardColor)
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.increment_step_label),
-                            color = settingsCardTextColor,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.width(70.dp))
-                        OutlinedTextField(
+                    Text(
+                        text = stringResource(R.string.increment_step_label),
+                        color = settingsCardTextColor,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
                             value = incrementStepText,
                             onValueChange = { newValue: String ->
                                 incrementStepText = newValue.filter(Char::isDigit)
@@ -389,7 +378,7 @@ fun SettingsScreen(
                                 fontSize = 16.sp
                             ),
                             modifier = Modifier
-                                .width(90.dp)
+                                .width(72.dp)
                                 .heightIn(max = 48.dp)
                                 .onFocusChanged { state ->
                                     if (!state.isFocused) {
@@ -405,12 +394,9 @@ fun SettingsScreen(
                                 focusedIndicatorColor = settingsCardTextColor.copy(alpha = 0.7f),
                                 unfocusedIndicatorColor = settingsCardTextColor.copy(alpha = 0.4f),
                                 focusedTextColor = settingsCardTextColor,
-                                unfocusedTextColor = settingsCardTextColor,
-                                focusedLabelColor = settingsCardTextColor.copy(alpha = 0.8f),
-                                unfocusedLabelColor = settingsCardTextColor.copy(alpha = 0.6f)
+                                unfocusedTextColor = settingsCardTextColor
                             )
-                        )
-                    }
+                    )
                 }
             }
 
@@ -419,29 +405,24 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = settingsSectionCardColor)
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.grid_view_mode),
-                            color = settingsCardTextColor,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Switch(
-                            checked = isGridView,
-                            onCheckedChange = onGridViewChange,
-                            colors = switchColors(currentTheme, dynamicColorsEnabled)
-                        )
-                    }
+                    Text(
+                        text = stringResource(R.string.grid_view_mode),
+                        color = settingsCardTextColor,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Switch(
+                        checked = isGridView,
+                        onCheckedChange = onGridViewChange,
+                        colors = switchColors(currentTheme, dynamicColorsEnabled)
+                    )
                 }
             }
             val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE

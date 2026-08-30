@@ -66,7 +66,7 @@ internal fun saturatedAccent(base: Color, darkTheme: Boolean, selected: Boolean)
 }
 
 internal fun bottomNavInnerHeight(compactHeight: Boolean) =
-    if (compactHeight) 68.dp else 102.dp
+    if (compactHeight) 64.dp else 88.dp
 
 @Composable
 fun bottomNavigationClearance(): Dp {
@@ -90,8 +90,8 @@ fun BottomNavigationBar(
 ) {
     val windowInfo = rememberWindowSizeInfo()
     val isCompactHeight = windowInfo.isLandscape || windowInfo.heightClass == WindowHeightClass.COMPACT
-    val barHeight = if (isCompactHeight) 60.dp else 92.dp
-    val bottomPadding = if (isCompactHeight) 8.dp else 10.dp
+    val barHeight = if (isCompactHeight) 56.dp else 78.dp
+    val bottomPadding = if (isCompactHeight) 4.dp else 2.dp
     val panelColor = PanelColor()
     val items = buildList {
         if (booksEnabled) add(NavigationItem.Books)

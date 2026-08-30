@@ -308,6 +308,8 @@ fun AddWorkScreen(
     val seriesTypeFilm = stringResource(R.string.film)
     val seriesTypeCartoon = stringResource(R.string.cartoon)
     val seriesTypeDrama = stringResource(R.string.drama)
+    val keyboardInset = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
+    val formKeyboardPadding = (keyboardInset - 44.dp).coerceAtLeast(0.dp)
 
     Box(
         modifier = modifier
@@ -320,6 +322,7 @@ fun AddWorkScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .widthIn(max = 720.dp)
+                .padding(bottom = formKeyboardPadding)
         ) {
         // Заголовок с кнопкой назад
         Row(

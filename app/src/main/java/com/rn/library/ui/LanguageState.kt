@@ -1,40 +1,47 @@
 package com.rn.library.ui
 
 import android.content.Context
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.core.os.LocaleListCompat
 
 class LanguageState(context: Context) {
-    private val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    var currentLanguage: Language by mutableStateOf(loadLanguage())
+    var currentLanguage: Language by mutableStateOf(loadLanguage(prefs))
         private set
-
-    init {
-        applyLanguage(currentLanguage)
-    }
 
     fun setLanguage(language: Language) {
         if (currentLanguage == language) return
         currentLanguage = language
-        prefs.edit().putString("language", language.name).apply()
-        applyLanguage(language)
+        persistAndApply(appContext, language)
     }
 
-    private fun loadLanguage(): Language =
-        runCatching {
-            Language.valueOf(prefs.getString("language", Language.ENGLISH.name) ?: Language.ENGLISH.name)
-        }.getOrDefault(Language.ENGLISH)
+    companion object {
+        private const val PREFS = "app_prefs"
+        private const val KEY = "language"
 
-    private fun applyLanguage(language: Language) {
-        AppCompatDelegate.setApplicationLocales(
-            when (language) {
-                Language.ENGLISH -> LocaleListCompat.forLanguageTags("en")
-                Language.RUSSIAN -> LocaleListCompat.forLanguageTags("ru")
+        fun applyStoredLanguage(context: Context) {
+            // The Compose tree applies the stored locale without recreating the Activity.
+            storedLanguage(context)
+        }
+
+        fun storedLanguage(context: Context): Language =
+            loadLanguage(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE))
+
+        private fun loadLanguage(prefs: android.content.SharedPreferences): Language =
+            runCatching {
+                Language.valueOf(prefs.getString(KEY, Language.ENGLISH.name) ?: Language.ENGLISH.name)
+            }.getOrDefault(Language.ENGLISH)
+
+        private fun persistAndApply(context: Context, language: Language, persist: Boolean = true) {
+            if (persist) {
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    .edit()
+                    .putString(KEY, language.name)
+                    .apply()
             }
-        )
+        }
     }
 }

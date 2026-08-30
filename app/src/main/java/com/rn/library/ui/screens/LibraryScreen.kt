@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,6 +72,7 @@ import com.rn.library.data.toCoverImageData
 import androidx.compose.ui.res.stringResource
 import com.rn.library.R
 import com.rn.library.ui.rememberLanguageState
+import com.rn.library.ui.LanguageState
 import com.rn.library.ui.workStatusLabel
 import com.rn.library.ui.workTypeLabel
 import com.rn.library.ui.components.StaleUpdateConfirmDialog
@@ -204,9 +206,11 @@ fun LibraryScreen(
     onUseCustomStatsColorChange: (Boolean) -> Unit = {},
     customStatsArgb: Int = 0xFF7C4DFF.toInt(),
     onCustomStatsArgbChange: (Int) -> Unit = {},
+    providedLanguageState: LanguageState? = null,
     modifier: Modifier = Modifier
 ) {
-    val languageState = rememberLanguageState()
+    val ownedLanguageState = rememberLanguageState()
+    val languageState = providedLanguageState ?: ownedLanguageState
     val currentLanguage = languageState.currentLanguage
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -260,16 +264,24 @@ fun LibraryScreen(
         }
     }
 
-    var selectedItem by remember {
-        mutableStateOf<NavigationItem>(
-            getDefaultTab(
-                booksEnabled = booksTabEnabled,
-                animeEnabled = animeTabEnabled,
-                mangaEnabled = mangaTabEnabled,
-                tvEnabled = tvSeriesTabEnabled
-            )
-        )
+    var selectedItemKey by rememberSaveable { mutableStateOf("default") }
+    fun navItemForKey(key: String): NavigationItem = when (key) {
+        "books" -> NavigationItem.Books
+        "anime" -> NavigationItem.Anime
+        "manga" -> NavigationItem.Manga
+        "series" -> NavigationItem.TVSeries
+        "profile" -> NavigationItem.Profile
+        else -> getDefaultTab(booksTabEnabled, animeTabEnabled, mangaTabEnabled, tvSeriesTabEnabled)
     }
+    fun navItemKey(item: NavigationItem): String = when (item) {
+        NavigationItem.Books -> "books"
+        NavigationItem.Anime -> "anime"
+        NavigationItem.Manga -> "manga"
+        NavigationItem.TVSeries -> "series"
+        NavigationItem.Profile -> "profile"
+    }
+    var selectedItem by remember { mutableStateOf(navItemForKey(selectedItemKey)) }
+    LaunchedEffect(selectedItemKey) { selectedItem = navItemForKey(selectedItemKey) }
 
     var searchQuery by remember { mutableStateOf<String>("") }
     var statusFilter by remember { mutableStateOf<WorkStatus?>(null) }
@@ -545,6 +557,7 @@ fun LibraryScreen(
                 profileReselectSignal++
             } else {
                 selectedItem = item
+                selectedItemKey = navItemKey(item)
                 isHeaderVisible = true
                 statusFilter = null
                 searchQuery = ""

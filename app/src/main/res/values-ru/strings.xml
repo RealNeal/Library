@@ -164,7 +164,7 @@
     <string name="activity_stats_confirm_title">Добавить в статистику активности?</string>
     <string name="activity_stats_confirm_message">Вы добавили больше 50 глав/серий за раз. Учитывать их в Heatmap и «Активность по периодам»? В разделе «Прочитанные главы/серии» они будут учтены в любом случае.</string>
     <string name="stale_update_confirm_title">Добавить в статистику активности?</string>
-    <string name="stale_update_confirm_message">Это произведение не обновлялось более 7 дней. Учитывать этот прогресс в Heatmap и «Активность по периодам»? В разделе «Прочитанные главы/серии» он будет учтён в любом случае.</string>
+    <string name="stale_update_confirm_message">Это произведение не обновлялось более 14 дней. Учитывать этот прогресс в Heatmap и «Активность по периодам»? В разделе «Прочитанные главы/серии» он будет учтён в любом случае.</string>
     <string name="yes">Да</string>
     <string name="no">Нет</string>
     <string name="progress_by_units">Учёт по томам/сезонам</string>
@@ -176,4 +176,18 @@
     <string name="unit_total">Всего (необ.)</string>
     <string name="volume_unit_prefix">Том</string>
     <string name="season_unit_prefix"></string>
+    <string name="check_updates">Проверить обновления</string>
+    <string name="update_checking">Проверка обновлений…</string>
+    <string name="update_up_to_date">Установлена актуальная версия (%1$s)</string>
+    <string name="update_available_title">Доступно обновление</string>
+    <string name="update_available_message">Установлено: %1$s\nПоследняя: %2$s</string>
+    <string name="update_download">Скачать и установить</string>
+    <string name="update_downloading">Загрузка обновления…</string>
+    <string name="update_no_apk">В последнем релизе GitHub нет APK</string>
+    <string name="update_error">Не удалось проверить обновления</string>
+    <string name="update_install_permission">Разрешите установку из этого приложения, чтобы обновиться</string>
+    <string name="update_channel_name">Обновления приложения</string>
+    <string name="update_channel_description">Уведомления о новых версиях MyLib</string>
+    <string name="update_notification_title">Доступна новая версия</string>
+    <string name="update_notification_text">MyLib %1$s готова к установке</string>
 </resources>

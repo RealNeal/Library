@@ -1,10 +1,13 @@
 package com.rn.library
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -16,13 +19,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import com.rn.library.ui.AppSettings
+import com.rn.library.ui.LanguageState
+import com.rn.library.ui.ProvideAppLanguage
 import com.rn.library.ui.screens.AppTheme
 import com.rn.library.ui.screens.LibraryScreen
 import com.rn.library.ui.theme.MyLibraryTheme
+import com.rn.library.update.GitHubUpdateChecker
+import com.rn.library.update.UpdateCheckResult
+import com.rn.library.update.UpdateNotifier
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) checkUpdatesInBackground()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -34,6 +53,8 @@ class MainActivity : ComponentActivity() {
             window.isStatusBarContrastEnforced = false
         }
         setContent {
+            val languageState = remember { LanguageState(applicationContext) }
+            val currentLanguage = languageState.currentLanguage
             val systemDarkTheme = isSystemInDarkTheme()
             var currentTheme by remember {
                 mutableStateOf(if (systemDarkTheme) AppTheme.DARK else AppTheme.LIGHT)
@@ -58,7 +79,8 @@ class MainActivity : ComponentActivity() {
             }
             val view = LocalView.current
 
-            MyLibraryTheme(
+            ProvideAppLanguage(currentLanguage) {
+                MyLibraryTheme(
                 darkTheme = currentTheme == AppTheme.DARK,
                 dynamicColor = dynamicColorsEnabled,
                 palette = themePalette,
@@ -77,8 +99,9 @@ class MainActivity : ComponentActivity() {
                     onDispose { }
                 }
 
-                LibraryScreen(
+                    LibraryScreen(
                     modifier = Modifier.fillMaxSize(),
+                    providedLanguageState = languageState,
                     currentTheme = currentTheme,
                     onThemeChange = { newTheme -> currentTheme = newTheme },
                     dynamicColorsEnabled = dynamicColorsEnabled,
@@ -111,7 +134,38 @@ class MainActivity : ComponentActivity() {
                         customStatsArgb = argb
                         AppSettings.setCustomStatsArgb(this, argb)
                     }
-                )
+                    )
+                }
+            }
+        }
+        requestNotificationPermissionThenCheck()
+    }
+
+    private fun requestNotificationPermissionThenCheck() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (granted) {
+                checkUpdatesInBackground()
+            } else {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        } else {
+            checkUpdatesInBackground()
+        }
+    }
+
+    private fun checkUpdatesInBackground() {
+        if (!GitHubUpdateChecker.shouldRunBackgroundCheck(this)) return
+        lifecycleScope.launch {
+            GitHubUpdateChecker.markBackgroundCheck(this@MainActivity)
+            val result = withContext(Dispatchers.IO) {
+                GitHubUpdateChecker.check(this@MainActivity)
+            }
+            if (result is UpdateCheckResult.Available) {
+                UpdateNotifier.notifyIfNew(this@MainActivity, result)
             }
         }
     }

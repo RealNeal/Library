@@ -164,7 +164,7 @@
     <string name="activity_stats_confirm_title">Add to activity statistics?</string>
     <string name="activity_stats_confirm_message">You added more than 50 chapters/episodes at once. Include them in Heatmap and Activity by periods? They will still be counted in Read chapters/episodes.</string>
     <string name="stale_update_confirm_title">Add to activity statistics?</string>
-    <string name="stale_update_confirm_message">This work has not been updated for over 7 days. Include this progress in Heatmap and Activity by periods? It will still be counted in Read chapters/episodes.</string>
+    <string name="stale_update_confirm_message">This work has not been updated for over 14 days. Include this progress in Heatmap and Activity by periods? It will still be counted in Read chapters/episodes.</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
     <string name="progress_by_units">Track by volume/season</string>
@@ -176,4 +176,18 @@
     <string name="unit_total">Total (opt.)</string>
     <string name="volume_unit_prefix">Vol.</string>
     <string name="season_unit_prefix"></string>
+    <string name="check_updates">Check for updates</string>
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_up_to_date">You have the latest version (%1$s)</string>
+    <string name="update_available_title">Update available</string>
+    <string name="update_available_message">Installed: %1$s\nLatest: %2$s</string>
+    <string name="update_download">Download and install</string>
+    <string name="update_downloading">Downloading update…</string>
+    <string name="update_no_apk">No APK found in the latest GitHub release</string>
+    <string name="update_error">Could not check for updates</string>
+    <string name="update_install_permission">Allow installing from this app to update</string>
+    <string name="update_channel_name">App updates</string>
+    <string name="update_channel_description">Notifications about new MyLib versions</string>
+    <string name="update_notification_title">New version available</string>
+    <string name="update_notification_text">MyLib %1$s is ready to install</string>
 </resources>
