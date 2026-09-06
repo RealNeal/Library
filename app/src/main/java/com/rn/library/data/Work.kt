@@ -69,7 +69,10 @@ data class Work(
     val note: String? = null,             // Small user note
     val link: String? = null,             // Primary link to the work
     val link2: String? = null,            // Secondary link to the work
-    val updatedAt: Long? = null           // Last update timestamp (epoch millis)
+    val author: String? = null,           // Author of the work
+    val updatedAt: Long? = null,          // Last update timestamp (epoch millis)
+    val genres: List<String> = emptyList(), // Genres of the work
+    val tags: List<String> = emptyList()    // Tags of the work
 )
 
 data class ReadingPeriod(

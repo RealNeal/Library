@@ -174,21 +174,7 @@ class WorkRepository(private val context: Context) {
         return readDelta to watchDelta
     }
 
-    fun isStaleWork(previous: Work?): Boolean {
-        if (previous == null) return false
-        val updatedAt = previous.updatedAt ?: return true
-        val thresholdMs = STALE_UPDATE_THRESHOLD_DAYS * 24L * 60 * 60 * 1000
-        return (System.currentTimeMillis() - updatedAt) >= thresholdMs
-    }
-
-    /** Нужно ли спрашивать пользователя о записи прогресса по давно не обновляемому произведению. */
-    fun shouldConfirmStaleUpdate(previous: Work?, saved: Work): Boolean {
-        if (!isStaleWork(previous)) return false
-        val (readDelta, watchDelta) = calculateProgressDelta(previous, saved)
-        return readDelta != 0.0 || watchDelta != 0.0
-    }
-
-    /** Нужно ли спрашивать пользователя о записи в Heatmap / «Активность по периодам». */
+    /** РќСѓР¶РЅРѕ Р»Рё СЃРїСЂР°С€РёРІР°С‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ Рѕ Р·Р°РїРёСЃРё РІ Heatmap / В«РђРєС‚РёРІРЅРѕСЃС‚СЊ РїРѕ РїРµСЂРёРѕРґР°РјВ». */
     fun shouldConfirmLargeActivityDelta(previous: Work?, saved: Work): Boolean {
         val (readDelta, watchDelta) = calculateProgressDelta(previous, saved)
         if (readDelta == 0.0 && watchDelta == 0.0) return false
@@ -395,6 +381,15 @@ class WorkRepository(private val context: Context) {
             // Вторая ссылка хранится отдельно
             sb.appendLine("link2: $it")
         }
+        work.author?.takeIf { it.isNotBlank() }?.let {
+            sb.appendLine("author: ${escapeMarkdown(it)}")
+        }
+        if (work.genres.isNotEmpty()) {
+            sb.appendLine("genres: ${encodeList(work.genres)}")
+        }
+        if (work.tags.isNotEmpty()) {
+            sb.appendLine("tags: ${encodeList(work.tags)}")
+        }
         work.updatedAt?.let {
             sb.appendLine("updatedAt: $it")
         }
@@ -462,6 +457,9 @@ class WorkRepository(private val context: Context) {
             val note = properties["note"]
             val link = properties["link"]
             val link2 = properties["link2"]
+            val author = properties["author"]
+            val genres = decodeList(properties["genres"])
+            val tags = decodeList(properties["tags"])
             val updatedAt = properties["updatedAt"]?.toLongOrNull()
 
             val bodyStart = match.range.last + 1
@@ -497,7 +495,10 @@ class WorkRepository(private val context: Context) {
                 note = note,
                 link = link,
                 link2 = link2,
-                updatedAt = updatedAt
+                author = author,
+                updatedAt = updatedAt,
+                genres = genres,
+                tags = tags
             )
         } catch (e: Exception) {
             e.printStackTrace()
@@ -631,6 +632,7 @@ class WorkRepository(private val context: Context) {
                 id = generateId(),
                 title = title,
                 description = description,
+                author = preview?.author,
                 type = WorkType.BOOK,
                 status = WorkStatus.IN_PLANS,
                 link = destFile.absolutePath
@@ -1415,7 +1417,6 @@ class WorkRepository(private val context: Context) {
 
     companion object {
         const val LARGE_ACTIVITY_DELTA_THRESHOLD = 50
-        const val STALE_UPDATE_THRESHOLD_DAYS = 14
 
         fun generateId(): String = UUID.randomUUID().toString()
     }

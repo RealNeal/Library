@@ -1,5 +1,14 @@
 package com.rn.library.ui.screens
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlinx.coroutines.launch
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
+
 import android.content.res.Configuration
 import android.net.Uri
 import androidx.compose.ui.platform.LocalConfiguration
@@ -20,6 +29,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import com.rn.library.ui.components.SunIcon
+import com.rn.library.ui.components.bottomNavigationClearance
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.DisposableEffect
@@ -50,7 +72,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.window.Dialog
 import com.rn.library.ui.AppSettings
 import com.rn.library.ui.components.CoverCarousel
-import com.rn.library.ui.components.bottomNavigationClearance
 import com.rn.library.ui.components.ScrollIsolatedMultilineField
 import com.rn.library.ui.components.filterUnitDecimalInput
 import com.rn.library.ui.components.formatEditableUnitNumber
@@ -77,7 +98,7 @@ private enum class EditInfoType {
     DATE_LIST
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun WorkDetailScreen(
     work: Work,
@@ -90,6 +111,9 @@ fun WorkDetailScreen(
     onSave: (Work) -> Unit,
     onCoverClick: () -> Unit = {},
     currentTheme: AppTheme = AppTheme.DARK,
+    onThemeToggle: (() -> Unit)? = null,
+    allWorks: List<Work> = emptyList(),
+    onSelectWork: ((Work) -> Unit)? = null,
     onScrollStateChange: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -134,7 +158,14 @@ fun WorkDetailScreen(
         null -> null
     }
 
-    val scrollState = rememberScrollState()
+    val scrollState = remember(work.id) { ScrollState(initial = 0) }
+    val coroutineScope = rememberCoroutineScope()
+    val offsetX = remember(work.id) { Animatable(0f) }
+
+    LaunchedEffect(work.id) {
+        offsetX.snapTo(0f)
+        scrollState.scrollTo(0)
+    }
     val context = LocalContext.current
     // Используем LocalClipboardManager: он помечен deprecated, но стабильно работает в текущей версии Compose
     @Suppress("DEPRECATION")
@@ -165,22 +196,17 @@ fun WorkDetailScreen(
     var statusMenuExpanded by remember { mutableStateOf(false) }
     var seriesTypeMenuExpanded by remember { mutableStateOf(false) }
     var mangaTypeMenuExpanded by remember { mutableStateOf(false) }
+    var detailSearchExpanded by remember { mutableStateOf(false) }
+    var detailSearchQuery by remember { mutableStateOf("") }
 
     // Handle system back button for inner popups and menus
+    androidx.activity.compose.BackHandler(enabled = detailSearchExpanded) {
+        detailSearchExpanded = false
+        detailSearchQuery = ""
+    }
     androidx.activity.compose.BackHandler(enabled = otherTitlesExpanded) {
         otherTitlesExpanded = false
     }
-    androidx.activity.compose.BackHandler(enabled = statusMenuExpanded || seriesTypeMenuExpanded || mangaTypeMenuExpanded) {
-        statusMenuExpanded = false
-        seriesTypeMenuExpanded = false
-        mangaTypeMenuExpanded = false
-    }
-
-    // Pending changes to apply asynchronously
-    var pendingStatusChange by remember { mutableStateOf<WorkStatus?>(null) }
-    var pendingSeriesTypeChange by remember { mutableStateOf<SeriesType?>(null) }
-    var pendingMangaTypeChange by remember { mutableStateOf<MangaType?>(null) }
-
     // Состояния для редактирования информации
     var showEditInfoDialog by remember { mutableStateOf(false) }
     var editInfoParts by remember { mutableStateOf<List<EditInfoItem>>(emptyList()) }
@@ -190,6 +216,24 @@ fun WorkDetailScreen(
     LaunchedEffect(work) {
         temporaryWork = work
     }
+
+    androidx.activity.compose.BackHandler(enabled = statusMenuExpanded || seriesTypeMenuExpanded || mangaTypeMenuExpanded) {
+        statusMenuExpanded = false
+        seriesTypeMenuExpanded = false
+        mangaTypeMenuExpanded = false
+    }
+    androidx.activity.compose.BackHandler(
+        enabled = !detailSearchExpanded && !otherTitlesExpanded &&
+            !statusMenuExpanded && !seriesTypeMenuExpanded && !mangaTypeMenuExpanded &&
+            !showEditInfoDialog
+    ) {
+        onBack()
+    }
+
+    // Pending changes to apply asynchronously
+    var pendingStatusChange by remember { mutableStateOf<WorkStatus?>(null) }
+    var pendingSeriesTypeChange by remember { mutableStateOf<SeriesType?>(null) }
+    var pendingMangaTypeChange by remember { mutableStateOf<MangaType?>(null) }
 
     // Handle pending status changes asynchronously
     LaunchedEffect(pendingStatusChange) {
@@ -386,6 +430,16 @@ fun WorkDetailScreen(
 
         items.add(
             EditInfoItem(
+                key = "author",
+                label = stringResource(R.string.author),
+                value = work.author.orEmpty(),
+                type = EditInfoType.STRING,
+                originalValue = work.author
+            )
+        )
+
+        items.add(
+            EditInfoItem(
                 key = "note",
                 label = stringResource(R.string.note_label),
                 value = work.note.orEmpty(),
@@ -402,22 +456,258 @@ fun WorkDetailScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            // Фон рисуется на уровне `LibraryScreen` (обложка + градиент + фон темы),
-            // поэтому здесь оставляем прозрачным, чтобы не перекрывать его.
-            .background(Color.Transparent),
+            .offset { IntOffset(offsetX.value.roundToInt().coerceAtLeast(0), 0) }
+            .pointerInput(work.id) {
+                var dragStartTime = 0L
+                var totalDragDistance = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = {
+                        dragStartTime = System.currentTimeMillis()
+                        totalDragDistance = 0f
+                    },
+                    onHorizontalDrag = { change, dragAmount ->
+                        totalDragDistance += dragAmount
+                        if (dragAmount > 0 || offsetX.value > 0f) {
+                            change.consume()
+                            coroutineScope.launch {
+                                offsetX.snapTo((offsetX.value + dragAmount).coerceAtLeast(0f))
+                            }
+                        }
+                    },
+                    onDragEnd = {
+                        val elapsed = (System.currentTimeMillis() - dragStartTime).coerceAtLeast(1L)
+                        val velocityPxPerSec = (totalDragDistance / elapsed) * 1000f
+                        val isFling = velocityPxPerSec > 1200f && totalDragDistance > 60f
+                        val isDraggedFar = offsetX.value > size.width * 0.28f
+                        coroutineScope.launch {
+                            if (isDraggedFar || isFling) {
+                                offsetX.animateTo(
+                                    targetValue = size.width.toFloat(),
+                                    animationSpec = tween(150, easing = FastOutSlowInEasing)
+                                )
+                                onBack()
+                            } else {
+                                offsetX.animateTo(
+                                    targetValue = 0f,
+                                    animationSpec = tween(150, easing = FastOutSlowInEasing)
+                                )
+                            }
+                        }
+                    },
+                    onDragCancel = {
+                        coroutineScope.launch {
+                            offsetX.animateTo(
+                                targetValue = 0f,
+                                animationSpec = tween(150, easing = FastOutSlowInEasing)
+                            )
+                        }
+                    }
+                )
+            }
+            .graphicsLayer {
+                shadowElevation = if (offsetX.value > 0f) 24.dp.toPx() else 0f
+                shape = RoundedCornerShape(
+                    topStart = if (offsetX.value > 0f) 16.dp else 0.dp,
+                    bottomStart = if (offsetX.value > 0f) 16.dp else 0.dp
+                )
+                clip = offsetX.value > 0f
+            }
+            .background(mainBackgroundColor)
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            ) {},
         contentAlignment = Alignment.TopCenter
     ) {
-        // Main scrollable content
+        val density = LocalDensity.current
+        val bgCover = currentCoverPath ?: sessionCoverPath ?: work.displayCoverPath()
+        if (!bgCover.isNullOrBlank()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(439.dp)
+                    .align(Alignment.TopCenter)
+            ) {
+                Image(
+                    painter = rememberAsyncImagePainter(
+                        ImageRequest.Builder(context)
+                            .data(bgCover.toCoverImageData())
+                            .build()
+                    ),
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.TopCenter,
+                    alpha = 0.35f
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    mainBackgroundColor
+                                ),
+                                startY = 0f,
+                                endY = with(density) { 439.dp.toPx() }
+                            )
+                        )
+                )
+            }
+        }
+
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .widthIn(max = 720.dp)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(scrollState),
-            // Немного уменьшаем вертикальные отступы между блоками,
-            // чтобы сократить расстояние между AssistChip и информационным полем.
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(40.dp))
+
+            // Верхняя панель управления
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 720.dp)
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.back),
+                        tint = iconTextColor
+                    )
+                }
+
+                if (detailSearchExpanded) {
+                    OutlinedTextField(
+                        value = detailSearchQuery,
+                        onValueChange = { detailSearchQuery = it },
+                        placeholder = { Text(stringResource(R.string.search_by_work_titles)) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp),
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = searchBarColor,
+                            unfocusedContainerColor = searchBarColor,
+                            focusedTextColor = fieldTextColor,
+                            unfocusedTextColor = fieldTextColor
+                        )
+                    )
+                    IconButton(onClick = {
+                        detailSearchExpanded = false
+                        detailSearchQuery = ""
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = null,
+                            tint = iconTextColor
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    if (allWorks.isNotEmpty()) {
+                        IconButton(onClick = { detailSearchExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = stringResource(R.string.search),
+                                tint = iconTextColor
+                            )
+                        }
+                    }
+
+                    if (onThemeToggle != null) {
+                        SunIcon(
+                            onClick = onThemeToggle,
+                            color = iconTextColor,
+                            iconSize = 20.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = stringResource(R.string.edit_work),
+                            tint = if (currentTheme == AppTheme.DARK) Color.White else Color.Black
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.delete_work),
+                            tint = if (currentTheme == AppTheme.DARK) Color.White else Color.Black
+                        )
+                    }
+                }
+            }
+
+            if (detailSearchExpanded) {
+                val filtered = allWorks.filter {
+                    detailSearchQuery.isBlank() ||
+                        it.title.contains(detailSearchQuery, ignoreCase = true) ||
+                        it.otherTitle?.contains(detailSearchQuery, ignoreCase = true) == true
+                }.sortedBy { it.title.lowercase() }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = 720.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(filtered, key = { it.id }) { item ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSelectWork?.invoke(item)
+                                    detailSearchExpanded = false
+                                    detailSearchQuery = ""
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Image(
+                                painter = rememberAsyncImagePainter(
+                                    (item.displayCoverPath())?.toCoverImageData()
+                                ),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(54.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = item.title,
+                                    color = titleColorBetween,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                    item {
+                        Spacer(modifier = Modifier.height(bottomNavigationClearance() + 16.dp))
+                    }
+                }
+            } else {
+                // Main scrollable content
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = 720.dp)
+                        .padding(horizontal = 16.dp)
+                        .verticalScroll(scrollState),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
             // Область обложки
             Box(
                 modifier = Modifier
@@ -736,6 +1026,7 @@ fun WorkDetailScreen(
                     }
                 }
             }
+            work.author?.takeIf { it.isNotBlank() }?.let { infoParts.add("${stringResource(R.string.author)}: $it") }
             if (work.type == WorkType.ANIME) {
                 work.animeSeason?.let { season ->
                     val seasonLabel = when (season) {
@@ -900,6 +1191,104 @@ fun WorkDetailScreen(
                 }
             }
 
+            // Genres and Tags Block (Above Links)
+            if (work.genres.isNotEmpty() || work.tags.isNotEmpty()) {
+                Surface(
+                    color = mainBackgroundColor,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        if (work.genres.isNotEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = stringResource(R.string.genres),
+                                    color = if (currentTheme == AppTheme.DARK) Color.White else Color.Black,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    work.genres.forEach { genre ->
+                                        AssistChip(
+                                            onClick = { },
+                                            label = {
+                                                Text(
+                                                    text = genre,
+                                                    fontSize = 13.sp,
+                                                    color = if (currentTheme == AppTheme.DARK) Color.White else Color.Black
+                                                )
+                                            },
+                                            colors = AssistChipDefaults.assistChipColors(
+                                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                            ),
+                                            border = AssistChipDefaults.assistChipBorder(
+                                                borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                                                borderWidth = 1.dp,
+                                                enabled = true
+                                            ),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        if (work.genres.isNotEmpty() && work.tags.isNotEmpty()) {
+                            HorizontalDivider(
+                                color = iconTextColor.copy(alpha = 0.15f),
+                                thickness = 1.dp
+                            )
+                        }
+
+                        if (work.tags.isNotEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = stringResource(R.string.tags),
+                                    color = if (currentTheme == AppTheme.DARK) Color.White else Color.Black,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    work.tags.forEach { tag ->
+                                        val displayTag = if (tag.startsWith("#")) tag else "#$tag"
+                                        AssistChip(
+                                            onClick = { },
+                                            label = {
+                                                Text(
+                                                    text = displayTag,
+                                                    fontSize = 13.sp,
+                                                    color = if (currentTheme == AppTheme.DARK) Color.White else Color.Black
+                                                )
+                                            },
+                                            colors = AssistChipDefaults.assistChipColors(
+                                                containerColor = statusColor.copy(alpha = 0.12f)
+                                            ),
+                                            border = AssistChipDefaults.assistChipBorder(
+                                                borderColor = statusColor.copy(alpha = 0.35f),
+                                                borderWidth = 1.dp,
+                                                enabled = true
+                                            ),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Unified Links Block (All links in one card)
             val allLinks = remember(work.link, work.link2) {
                 val list = mutableListOf<String>()
@@ -988,7 +1377,8 @@ fun WorkDetailScreen(
 
             // Bottom padding so all content can scroll cleanly
             Spacer(modifier = Modifier.height(115.dp))
-
+                }
+            }
         }
 
         // Bottom popup with names (like sheet), animated over content
@@ -1117,6 +1507,8 @@ fun WorkDetailScreen(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(bottomNavigationClearance() + 16.dp))
         }
 
         // Диалог редактирования информации
@@ -1133,6 +1525,37 @@ fun WorkDetailScreen(
             )
         }
 
+        // Индикатор свайпа для возврата назад
+        val dragOffset = offsetX.value
+        if (dragOffset > 8f) {
+            val isReadyToDismiss = dragOffset > 100f
+            val indicatorAlpha = (dragOffset / 50f).coerceIn(0f, 1f)
+            val indicatorScale = 0.6f + 0.4f * (dragOffset / 120f).coerceIn(0f, 1f)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .offset(x = 16.dp)
+                    .graphicsLayer {
+                        alpha = indicatorAlpha
+                        scaleX = indicatorScale
+                        scaleY = indicatorScale
+                    }
+                    .clip(CircleShape)
+                    .background(
+                        if (isReadyToDismiss) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f)
+                    )
+                    .padding(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                    tint = if (isReadyToDismiss) MaterialTheme.colorScheme.onPrimary
+                           else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
     }
 }
 
@@ -1590,6 +2013,7 @@ private fun EditInfoDialog(
                                             rereadDates = parseRereadDatesForSave(item.value.orEmpty())
                                         )
                                     }
+                                    "author" -> updatedWork.copy(author = item.value?.takeIf { it.isNotBlank() })
                                     "note" -> updatedWork.copy(note = item.value?.takeIf { it.isNotBlank() })
                                     else -> updatedWork
                                 }

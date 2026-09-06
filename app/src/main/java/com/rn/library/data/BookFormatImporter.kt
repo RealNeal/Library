@@ -23,7 +23,12 @@ object BookFormatImporter {
                 .find(text)?.groupValues?.getOrNull(1).orEmpty()
 
             val desc = stripXmlToPlain(annotationRaw).take(4000)
-            BookImportPreview(title = title, description = desc)
+            val firstName = Regex("<first-name>\\s*([^<]+)\\s*</first-name>", RegexOption.IGNORE_CASE)
+                .find(text)?.groupValues?.getOrNull(1)?.trim()
+            val lastName = Regex("<last-name>\\s*([^<]+)\\s*</last-name>", RegexOption.IGNORE_CASE)
+                .find(text)?.groupValues?.getOrNull(1)?.trim()
+            val author = listOfNotNull(firstName, lastName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { null }
+            BookImportPreview(title = title, description = desc, author = author)
         }.getOrNull()
     }
 
@@ -47,7 +52,10 @@ object BookFormatImporter {
                 val descRaw =
                     Regex("<dc:description[^>]*>([\\s\\S]*?)</dc:description>", RegexOption.IGNORE_CASE).find(opf)?.groupValues?.getOrNull(1).orEmpty()
 
-                BookImportPreview(title = title, description = stripXmlToPlain(descRaw).take(4000))
+                val author =
+                    Regex("<dc:creator[^>]*>([^<]+)</dc:creator>", RegexOption.IGNORE_CASE).find(opf)?.groupValues?.getOrNull(1)?.trim()?.ifBlank { null }
+
+                BookImportPreview(title = title, description = stripXmlToPlain(descRaw).take(4000), author = author)
             }
         }.getOrNull()
     }

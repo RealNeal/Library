@@ -29,6 +29,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -40,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import com.rn.library.R
 import com.rn.library.data.*
@@ -131,6 +134,7 @@ fun AddWorkScreen(
     // Основные поля
     var title by remember(work?.title) { mutableStateOf(work?.title ?: "") }
     var alternativeTitles by remember(work?.otherTitle) { mutableStateOf(formatAlternativeTitlesForDisplay(work?.otherTitle) ?: "") }
+    var author by remember(work?.author) { mutableStateOf(work?.author ?: "") }
     var description by remember(work?.description) { mutableStateOf(work?.description ?: "") }
     var type by remember(work?.type) { mutableStateOf(work?.type ?: WorkType.BOOK) }
     var status by remember(work?.status) { mutableStateOf(work?.status ?: WorkStatus.IN_PLANS) }
@@ -182,6 +186,16 @@ fun AddWorkScreen(
     }
     var linksText by remember(work?.link, work?.link2) {
         mutableStateOf(formatLinksForDisplay(work?.link, work?.link2))
+    }
+    var genres by remember(work?.genres) { mutableStateOf(work?.genres ?: emptyList()) }
+    var tags by remember(work?.tags) { mutableStateOf(work?.tags ?: emptyList()) }
+    var genreInput by remember { mutableStateOf("") }
+    var tagInput by remember { mutableStateOf("") }
+    val existingGenres = remember {
+        repository.getAllWorks().flatMap { it.genres }.filter { it.isNotBlank() }.distinct().sorted()
+    }
+    val existingTags = remember {
+        repository.getAllWorks().flatMap { it.tags }.filter { it.isNotBlank() }.distinct().sorted()
     }
     var note by remember(work?.note) { mutableStateOf(work?.note ?: "") }
 
@@ -374,6 +388,17 @@ fun AddWorkScreen(
                 colors = fieldColors,
                 parentScrollState = formScrollState,
             )
+
+            // Автор
+            OutlinedTextField(
+                value = author,
+                onValueChange = { author = it },
+                label = { Text(stringResource(R.string.author)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                colors = fieldColors
+            )
+
 
             ScrollIsolatedMultilineField(
                 value = description,
@@ -801,6 +826,34 @@ fun AddWorkScreen(
                 parentScrollState = formScrollState,
             )
 
+            // Жанры
+            ChipInputSection(
+                label = stringResource(R.string.genres),
+                placeholder = stringResource(R.string.genres_placeholder),
+                inputValue = genreInput,
+                onInputValueChange = { genreInput = it },
+                items = genres,
+                onItemsChange = { genres = it },
+                suggestions = existingGenres,
+                fieldColors = fieldColors,
+                chipAccentColor = accentColor,
+                isTag = false
+            )
+
+            // Теги
+            ChipInputSection(
+                label = stringResource(R.string.tags),
+                placeholder = stringResource(R.string.tags_placeholder),
+                inputValue = tagInput,
+                onInputValueChange = { tagInput = it },
+                items = tags,
+                onItemsChange = { tags = it },
+                suggestions = existingTags,
+                fieldColors = fieldColors,
+                chipAccentColor = accentColor,
+                isTag = true
+            )
+
             // Ссылки (одиночное поле для нескольких ссылок)
             ScrollIsolatedMultilineField(
                 value = linksText,
@@ -868,8 +921,11 @@ fun AddWorkScreen(
                         rereadDates = rereadSaved,
                         link = parseLinksForSave(linksText).first,
                         link2 = parseLinksForSave(linksText).second,
+                        author = author.trim().ifEmpty { null },
                         note = note.ifEmpty { null },
                         updatedAt = System.currentTimeMillis(),
+                        genres = genres,
+                        tags = tags,
                         // Сохраняем существующие поля
                         abandonedProgress = work?.abandonedProgress,
                         readingPeriods = work?.readingPeriods ?: emptyList(),
@@ -995,6 +1051,120 @@ private fun CustomDropdown(
                             modifier = Modifier.background(fieldBg)
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ChipInputSection(
+    label: String,
+    placeholder: String,
+    inputValue: String,
+    onInputValueChange: (String) -> Unit,
+    items: List<String>,
+    onItemsChange: (List<String>) -> Unit,
+    suggestions: List<String>,
+    fieldColors: TextFieldColors,
+    chipAccentColor: Color,
+    isTag: Boolean = false
+) {
+    fun addItems(raw: String) {
+        val newParts = raw.split(",", ";", "\n")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        if (newParts.isNotEmpty()) {
+            val updated = (items + newParts).distinct()
+            onItemsChange(updated)
+            onInputValueChange("")
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        OutlinedTextField(
+            value = inputValue,
+            onValueChange = onInputValueChange,
+            label = { Text(label) },
+            placeholder = { Text(placeholder) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { addItems(inputValue) }),
+            trailingIcon = {
+                if (inputValue.isNotBlank()) {
+                    IconButton(onClick = { addItems(inputValue) }) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = label,
+                            tint = chipAccentColor
+                        )
+                    }
+                }
+            },
+            colors = fieldColors
+        )
+
+        // Added chips
+        if (items.isNotEmpty()) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items.forEach { item ->
+                    val displayLabel = if (isTag && !item.startsWith("#")) "#$item" else item
+                    AssistChip(
+                        onClick = { onItemsChange(items - item) },
+                        label = { Text(displayLabel, fontSize = 13.sp) },
+                        trailingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.delete),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = chipAccentColor.copy(alpha = 0.15f),
+                            labelColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        border = AssistChipDefaults.assistChipBorder(
+                            borderColor = chipAccentColor.copy(alpha = 0.45f),
+                            borderWidth = 1.dp,
+                            enabled = true
+                        )
+                    )
+                }
+            }
+        }
+
+        // Suggestions
+        val availableSuggestions = suggestions.filter { it !in items }
+        if (availableSuggestions.isNotEmpty()) {
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(availableSuggestions.take(20)) { suggestion ->
+                    val displaySuggestion = if (isTag && !suggestion.startsWith("#")) "#$suggestion" else suggestion
+                    AssistChip(
+                        onClick = {
+                            onItemsChange((items + suggestion).distinct())
+                        },
+                        label = { Text("+ $displaySuggestion", fontSize = 12.sp) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = Color.Transparent
+                        ),
+                        border = AssistChipDefaults.assistChipBorder(
+                            borderColor = chipAccentColor.copy(alpha = 0.25f),
+                            borderWidth = 1.dp,
+                            enabled = true
+                        )
+                    )
                 }
             }
         }

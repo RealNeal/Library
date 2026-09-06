@@ -50,7 +50,7 @@ sealed class NavigationItem(
     object Profile : NavigationItem(R.string.profile, Icons.Default.Person)
 }
 
-internal fun saturatedAccent(base: Color, darkTheme: Boolean, selected: Boolean): Color {
+fun saturatedAccent(base: Color, darkTheme: Boolean, selected: Boolean): Color {
     val hsv = FloatArray(3)
     android.graphics.Color.colorToHSV(base.toArgb(), hsv)
     val saturationBoost = if (selected) 1f else 0.85f
@@ -63,6 +63,31 @@ internal fun saturatedAccent(base: Color, darkTheme: Boolean, selected: Boolean)
     }
     hsv[2] = (hsv[2] * valueMultiplier).coerceIn(0f, 1f)
     return Color.hsv(hsv[0], hsv[1], hsv[2], base.alpha)
+}
+
+@Composable
+fun tabContentColor(
+    currentTheme: AppTheme = AppTheme.DARK,
+    dynamicColorsEnabled: Boolean = false
+): Color {
+    val activeScheme = MaterialTheme.colorScheme
+    val primaryAccent = activeScheme.primary
+    val selectedAccentTint = saturatedAccent(primaryAccent, currentTheme == AppTheme.DARK, selected = true)
+    val staticTabContent = StaticTabContentColor()
+    return if (dynamicColorsEnabled) selectedAccentTint else staticTabContent
+}
+
+@Composable
+fun tabBackgroundColor(
+    dynamicColorsEnabled: Boolean = false
+): Color {
+    val activeScheme = MaterialTheme.colorScheme
+    val primaryAccent = activeScheme.primary
+    return if (dynamicColorsEnabled) {
+        activeScheme.secondaryContainer
+    } else {
+        primaryAccent.copy(alpha = 0.25f)
+    }
 }
 
 internal fun bottomNavInnerHeight(compactHeight: Boolean) =
@@ -135,16 +160,8 @@ private fun NavigationButton(
 ) {
     val iconColor = BottomPanelIconColor()
     val labelColor = BottomPanelLabelColor()
-    val activeScheme = MaterialTheme.colorScheme
-    val primaryAccent = activeScheme.primary
-    val selectedAccentTint = saturatedAccent(primaryAccent, currentTheme == AppTheme.DARK, selected = true)
-    val staticTabContent = StaticTabContentColor()
-    val selectedContentColor = if (dynamicColorsEnabled) selectedAccentTint else staticTabContent
-    val selectedBackgroundColor = if (dynamicColorsEnabled) {
-        activeScheme.secondaryContainer
-    } else {
-        primaryAccent.copy(alpha = 0.25f)
-    }
+    val selectedContentColor = tabContentColor(currentTheme, dynamicColorsEnabled)
+    val selectedBackgroundColor = tabBackgroundColor(dynamicColorsEnabled)
 
     val animatedScale by animateFloatAsState(
         targetValue = if (isSelected) 1.05f else 1f,

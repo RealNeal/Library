@@ -3,7 +3,6 @@ package com.rn.library.update
 import android.content.Context
 import android.content.pm.PackageManager
 import org.json.JSONObject
-import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -65,23 +64,6 @@ object GitHubUpdateChecker {
             .putLong(KEY_LAST_BACKGROUND_CHECK, now)
             .apply()
     }
-
-    fun downloadApk(release: GitHubRelease, destFile: File): Boolean {
-        val url = release.apkUrl ?: return false
-        destFile.parentFile?.mkdirs()
-        val connection = open(url)
-        return try {
-            if (connection.responseCode !in 200..299) return false
-            connection.inputStream.use { input ->
-                destFile.outputStream().use { output -> input.copyTo(output) }
-            }
-            destFile.exists() && destFile.length() > 0L
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    fun updatesDir(context: Context): File = File(context.cacheDir, "updates")
 
     fun isNewer(latestTag: String, currentVersion: String): Boolean =
         compareVersions(latestTag, currentVersion) > 0

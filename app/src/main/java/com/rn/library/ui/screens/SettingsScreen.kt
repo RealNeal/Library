@@ -20,8 +20,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
@@ -112,6 +114,8 @@ fun SettingsScreen(
     var incrementStepText by remember {
         mutableStateOf(AppSettings.getIncrementStep(context).toString())
     }
+    var checkingUpdates by remember { mutableStateOf(false) }
+    var availableRelease by remember { mutableStateOf<com.rn.library.update.GitHubRelease?>(null) }
     val scrollState = rememberScrollState()
     BackHandler(onBack = onBack)
 
@@ -293,10 +297,19 @@ fun SettingsScreen(
                         .padding(16.dp)
                 ) {
                     var languageMenuExpanded by remember { mutableStateOf(false) }
-                    val selectedLanguageLabel = when (currentLanguage) {
-                        Language.ENGLISH -> stringResource(R.string.english)
-                        Language.RUSSIAN -> stringResource(R.string.russian)
-                    }
+                    val languages = listOf(
+                        Language.ENGLISH to stringResource(R.string.english),
+                        Language.RUSSIAN to stringResource(R.string.russian),
+                        Language.GERMAN to stringResource(R.string.german),
+                        Language.FRENCH to stringResource(R.string.french),
+                        Language.SPANISH to stringResource(R.string.spanish),
+                        Language.PORTUGUESE to stringResource(R.string.portuguese),
+                        Language.CHINESE to stringResource(R.string.chinese),
+                        Language.JAPANESE to stringResource(R.string.japanese),
+                        Language.KOREAN to stringResource(R.string.korean)
+                    )
+                    val selectedLanguageLabel = languages.firstOrNull { it.first == currentLanguage }?.second
+                        ?: stringResource(R.string.english)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -327,20 +340,15 @@ fun SettingsScreen(
                                 expanded = languageMenuExpanded,
                                 onDismissRequest = { languageMenuExpanded = false }
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.english)) },
-                                    onClick = {
-                                        onLanguageChange(Language.ENGLISH)
-                                        languageMenuExpanded = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.russian)) },
-                                    onClick = {
-                                        onLanguageChange(Language.RUSSIAN)
-                                        languageMenuExpanded = false
-                                    }
-                                )
+                                languages.forEach { (lang, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = {
+                                            onLanguageChange(lang)
+                                            languageMenuExpanded = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -425,8 +433,99 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !checkingUpdates) {
+                        checkingUpdates = true
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                com.rn.library.update.GitHubUpdateChecker.check(context)
+                            }
+                            checkingUpdates = false
+                            when (result) {
+                                is com.rn.library.update.UpdateCheckResult.UpToDate -> {
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.update_up_to_date, result.currentVersion),
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                                is com.rn.library.update.UpdateCheckResult.Available -> {
+                                    availableRelease = result.release
+                                }
+                                is com.rn.library.update.UpdateCheckResult.Error -> {
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.update_error),
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
+                        }
+                    },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = settingsSectionCardColor)
+            ) {
+                Text(
+                    text = if (checkingUpdates) {
+                        stringResource(R.string.update_checking)
+                    } else {
+                        stringResource(R.string.check_updates)
+                    },
+                    color = settingsCardTextColor,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+
             val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
             Spacer(modifier = Modifier.height(if (isLandscape) 16.dp else bottomNavigationClearance()))
+        }
+
+        availableRelease?.let { release ->
+            AlertDialog(
+                onDismissRequest = { availableRelease = null },
+                title = { Text(stringResource(R.string.update_available_title), color = titleColorBetween) },
+                text = {
+                    Text(
+                        stringResource(
+                            R.string.update_available_message,
+                            com.rn.library.update.GitHubUpdateChecker.currentVersionName(context),
+                            release.tag
+                        )
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val targetUrl = release.htmlUrl.ifBlank {
+                                "https://github.com/${com.rn.library.update.GitHubUpdateChecker.OWNER}/${com.rn.library.update.GitHubUpdateChecker.REPO}/releases/latest"
+                            }
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(targetUrl)).apply {
+                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            try {
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, e.message, Toast.LENGTH_SHORT).show()
+                            }
+                            availableRelease = null
+                        }
+                    ) {
+                        Text(stringResource(R.string.update_download))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { availableRelease = null }
+                    ) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            )
         }
     }
 }

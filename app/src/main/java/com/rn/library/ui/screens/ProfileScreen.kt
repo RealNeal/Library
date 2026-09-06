@@ -149,15 +149,14 @@ fun ProfileScreen(
     val exportErrorText = stringResource(R.string.export_error)
     val repository = remember { WorkRepository(context) }
     var localWorks by remember { mutableStateOf(works) }
+    var activityStatsEpoch by remember { mutableIntStateOf(0) }
+    var activityEvents by remember { mutableStateOf<List<ActivityDeltaEvent>>(emptyList()) }
 
     LaunchedEffect(works) {
         if (works.isNotEmpty()) {
             localWorks = works
         }
     }
-
-    var activityStatsEpoch by remember { mutableIntStateOf(0) }
-    var activityEvents by remember { mutableStateOf<List<ActivityDeltaEvent>>(emptyList()) }
 
     LaunchedEffect(localWorks, activityStatsEpoch) {
         activityEvents = withContext(Dispatchers.IO) { repository.loadActivityEvents() }
@@ -166,9 +165,6 @@ fun ProfileScreen(
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showGuide by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
-    var checkingUpdates by remember { mutableStateOf(false) }
-    var downloadingUpdate by remember { mutableStateOf(false) }
-    var availableRelease by remember { mutableStateOf<com.rn.library.update.GitHubRelease?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val onWorksUpdatedState = rememberUpdatedState(onWorksUpdated)
 
@@ -178,7 +174,6 @@ fun ProfileScreen(
         showGuide = false
         showImportDialog = false
     }
-
     val importBooksLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris: List<Uri> ->
@@ -433,126 +428,6 @@ fun ProfileScreen(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(16.dp)
-                )
-            }
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !checkingUpdates && !downloadingUpdate) {
-                        checkingUpdates = true
-                        coroutineScope.launch {
-                            val result = withContext(Dispatchers.IO) {
-                                com.rn.library.update.GitHubUpdateChecker.check(context)
-                            }
-                            checkingUpdates = false
-                            when (result) {
-                                is com.rn.library.update.UpdateCheckResult.UpToDate -> {
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.update_up_to_date, result.currentVersion),
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                }
-                                is com.rn.library.update.UpdateCheckResult.Available -> {
-                                    availableRelease = result.release
-                                }
-                                is com.rn.library.update.UpdateCheckResult.Error -> {
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.update_error),
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                }
-                            }
-                        }
-                    },
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = profileSectionCardColor)
-            ) {
-                Text(
-                    text = if (checkingUpdates || downloadingUpdate) {
-                        stringResource(
-                            if (downloadingUpdate) R.string.update_downloading else R.string.update_checking
-                        )
-                    } else {
-                        stringResource(R.string.check_updates)
-                    },
-                    color = profileSectionTextColor,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-
-            availableRelease?.let { release ->
-                AlertDialog(
-                    onDismissRequest = { if (!downloadingUpdate) availableRelease = null },
-                    title = { Text(stringResource(R.string.update_available_title), color = titleColorBetween) },
-                    text = {
-                        Text(
-                            stringResource(
-                                R.string.update_available_message,
-                                com.rn.library.update.GitHubUpdateChecker.currentVersionName(context),
-                                release.tag
-                            )
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(
-                            enabled = !downloadingUpdate,
-                            onClick = {
-                                if (!com.rn.library.update.ApkInstaller.canInstallPackages(context)) {
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.update_install_permission),
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                    com.rn.library.update.ApkInstaller.requestInstallPermission(context)
-                                    return@TextButton
-                                }
-                                if (release.apkUrl.isNullOrBlank()) {
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.update_no_apk),
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                    return@TextButton
-                                }
-                                downloadingUpdate = true
-                                coroutineScope.launch {
-                                    val apkFile = java.io.File(
-                                        com.rn.library.update.GitHubUpdateChecker.updatesDir(context),
-                                        release.apkName ?: "app-release.apk"
-                                    )
-                                    val ok = withContext(Dispatchers.IO) {
-                                        com.rn.library.update.GitHubUpdateChecker.downloadApk(release, apkFile)
-                                    }
-                                    downloadingUpdate = false
-                                    availableRelease = null
-                                    if (ok) {
-                                        com.rn.library.update.ApkInstaller.install(context, apkFile)
-                                    } else {
-                                        Toast.makeText(
-                                            context,
-                                            context.getString(R.string.update_error),
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                    }
-                                }
-                            }
-                        ) {
-                            Text(stringResource(R.string.update_download))
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            enabled = !downloadingUpdate,
-                            onClick = { availableRelease = null }
-                        ) {
-                            Text(stringResource(R.string.cancel))
-                        }
-                    }
                 )
             }
 
@@ -1227,11 +1102,7 @@ private fun ActivityHeatmap(
     statsTint: Color,
     currentLanguage: Language
 ) {
-    val locale = if (currentLanguage == Language.RUSSIAN) {
-        Locale.forLanguageTag("ru-RU")
-    } else {
-        Locale.ENGLISH
-    }
+    val locale = Locale.forLanguageTag(currentLanguage.languageTag)
     val today = LocalDate.now()
     val currentWeekMonday = remember(today) { today.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)) }
     val windowStart = remember(today) { today.minusYears(1) }
@@ -1351,11 +1222,7 @@ private fun PeriodActivityChart(
     statsFillColor: Color,
     currentLanguage: Language
 ) {
-    val locale = if (currentLanguage == Language.RUSSIAN) {
-        Locale.forLanguageTag("ru-RU")
-    } else {
-        Locale.ENGLISH
-    }
+    val locale = Locale.forLanguageTag(currentLanguage.languageTag)
     val today = LocalDate.now()
     val weekStart = today.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
     val bars = remember(entries, mode, currentLanguage) {

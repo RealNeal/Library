@@ -75,11 +75,12 @@ import com.rn.library.ui.rememberLanguageState
 import com.rn.library.ui.LanguageState
 import com.rn.library.ui.workStatusLabel
 import com.rn.library.ui.workTypeLabel
-import com.rn.library.ui.components.StaleUpdateConfirmDialog
 import com.rn.library.ui.components.ActivityStatsConfirmDialog
 import com.rn.library.ui.components.AppNavigationRail
 import com.rn.library.ui.components.BottomNavigationBar
 import com.rn.library.ui.components.bottomNavigationClearance
+import com.rn.library.ui.components.tabContentColor
+import com.rn.library.ui.components.tabBackgroundColor
 import com.rn.library.ui.components.NavigationItem
 import com.rn.library.ui.components.SearchBar
 import com.rn.library.ui.components.SunIcon
@@ -97,7 +98,47 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 // Порядок сортировки списка произведений
-enum class SortOrder { TITLE_ASC, TITLE_DESC, DATE_MODIFIED_DESC, DATE_MODIFIED_ASC }
+enum class SortOrder {
+    RECENT,
+    NEWEST,
+    TITLE,
+    TITLE_DESC,
+    AUTHOR,
+    GENRE,
+    TAG
+}
+
+private fun sortWorks(list: List<Work>, sortOrder: SortOrder): List<Work> {
+    return when (sortOrder) {
+        SortOrder.RECENT -> list.sortedWith(
+            compareByDescending<Work> { it.updatedAt ?: 0L }
+                .thenBy { it.title.lowercase() }
+        )
+        SortOrder.NEWEST -> list.sortedWith(
+            compareByDescending<Work> { it.year ?: 0 }
+                .thenByDescending { it.updatedAt ?: 0L }
+                .thenBy { it.title.lowercase() }
+        )
+        SortOrder.TITLE -> list.sortedWith(
+            compareBy<Work> { it.title.lowercase() }
+        )
+        SortOrder.TITLE_DESC -> list.sortedWith(
+            compareByDescending<Work> { it.title.lowercase() }
+        )
+        SortOrder.AUTHOR -> list.sortedWith(
+            compareBy<Work> { it.author?.lowercase() ?: "\uFFFF" }
+                .thenBy { it.title.lowercase() }
+        )
+        SortOrder.GENRE -> list.sortedWith(
+            compareBy<Work> { it.genres.firstOrNull()?.lowercase() ?: "\uFFFF" }
+                .thenBy { it.title.lowercase() }
+        )
+        SortOrder.TAG -> list.sortedWith(
+            compareBy<Work> { it.tags.firstOrNull()?.lowercase() ?: "\uFFFF" }
+                .thenBy { it.title.lowercase() }
+        )
+    }
+}
 
 private data class PendingWorkSave(
     val work: Work,
@@ -223,9 +264,13 @@ fun LibraryScreen(
     // Сортировка списка
     var sortOrder by remember {
         mutableStateOf(
-            SortOrder.valueOf(
-                prefs.getString("sort_order", SortOrder.TITLE_ASC.name) ?: SortOrder.TITLE_ASC.name
-            )
+            try {
+                SortOrder.valueOf(
+                    prefs.getString("sort_order", SortOrder.RECENT.name) ?: SortOrder.RECENT.name
+                )
+            } catch (e: Exception) {
+                SortOrder.RECENT
+            }
         )
     }
 
@@ -294,7 +339,6 @@ fun LibraryScreen(
     var expandedCoverWork by remember { mutableStateOf<Work?>(null) }
     var pendingWorkSave by remember { mutableStateOf<PendingWorkSave?>(null) }
     var showActivityStatsConfirm by remember { mutableStateOf(false) }
-    var showStaleUpdateConfirm by remember { mutableStateOf(false) }
 
     /** Счётчик повторного выбора вкладки «Профиль» (закрытие Настроек и др. оверлеев). */
     var profileReselectSignal by remember { mutableStateOf(0) }
@@ -310,41 +354,15 @@ fun LibraryScreen(
         onAfterSave(work)
     }
 
-    fun proceedAfterStaleCheck(
-        work: Work,
-        previous: Work?,
-        onAfterSave: (Work) -> Unit,
-        staleRecordActivity: Boolean
-    ) {
-        if (repository.shouldConfirmLargeActivityDelta(previous, work)) {
-            pendingWorkSave = PendingWorkSave(work, previous, onAfterSave)
-            showActivityStatsConfirm = true
-            return
-        }
-        commitWorkSave(
-            work,
-            previous,
-            recordActivity = staleRecordActivity,
-            onAfterSave = onAfterSave
-        )
-    }
-
     fun requestSaveWork(work: Work, previous: Work?, onAfterSave: (Work) -> Unit) {
         val resolvedPrevious = previous ?: repository.getWorkById(work.id)
-        if (repository.shouldConfirmStaleUpdate(resolvedPrevious, work)) {
-            pendingWorkSave = PendingWorkSave(work, resolvedPrevious, onAfterSave)
-            showStaleUpdateConfirm = true
-        } else if (repository.shouldConfirmLargeActivityDelta(resolvedPrevious, work)) {
+        if (repository.shouldConfirmLargeActivityDelta(resolvedPrevious, work)) {
             pendingWorkSave = PendingWorkSave(work, resolvedPrevious, onAfterSave)
             showActivityStatsConfirm = true
         } else {
             commitWorkSave(work, resolvedPrevious, recordActivity = true, onAfterSave)
         }
     }
-
-    // Search inside details-mode (icon-only search bar)
-    var detailSearchExpanded by remember { mutableStateOf(false) }
-    var detailSearchQuery by remember { mutableStateOf("") }
 
     // Как и для грида: новое состояние при смене вкладки/фильтра/сортировки/поиска/режима —
     // список начинается с первого элемента (прокрутка не «залипает» на старой позиции после сортировки).
@@ -356,21 +374,13 @@ fun LibraryScreen(
     }
     var isHeaderVisible by remember { mutableStateOf(true) }
 
-    // Back press when detail-search is open: close search instead of leaving work
-    BackHandler(enabled = selectedWork != null && detailSearchExpanded) {
-        detailSearchExpanded = false
-        detailSearchQuery = ""
-    }
-
     // Back для увеличенной обложки
     BackHandler(enabled = expandedCoverWork != null) {
         expandedCoverWork = null
     }
 
     // Общий back: закрываем экран добавления или просмотра произведения.
-    // Не должен срабатывать, пока открыт detail-search (detailSearchExpanded = true) или увеличенная обложка,
-    // чтобы системная кнопка «Назад» сперва закрывала поиск или обложку.
-    BackHandler(enabled = showAddWorkScreen || (selectedWork != null && !detailSearchExpanded && expandedCoverWork == null)) {
+    BackHandler(enabled = showAddWorkScreen || (selectedWork != null && expandedCoverWork == null)) {
         when {
             showAddWorkScreen -> {
                 // Если редактировали существующее произведение, возвращаемся к экрану просмотра
@@ -413,10 +423,7 @@ fun LibraryScreen(
 
     // Reset detail search when leaving work details и возвращаем хедер (строку поиска) при входе в детали
     LaunchedEffect(selectedWork) {
-        if (selectedWork == null) {
-            detailSearchExpanded = false
-            detailSearchQuery = ""
-        } else {
+        if (selectedWork != null) {
             // При открытии экрана просмотра произведения гарантированно показываем хедер,
             // даже если он был скрыт прокруткой.
             isHeaderVisible = true
@@ -449,7 +456,9 @@ fun LibraryScreen(
         if (searchQuery.isNotBlank()) {
             filtered = filtered.filter {
                 it.title.contains(searchQuery, ignoreCase = true) ||
-                        it.otherTitle?.contains(searchQuery, ignoreCase = true) == true
+                        it.otherTitle?.contains(searchQuery, ignoreCase = true) == true ||
+                        it.genres.any { g -> g.contains(searchQuery, ignoreCase = true) } ||
+                        it.tags.any { t -> t.contains(searchQuery, ignoreCase = true) }
             }
         }
 
@@ -458,13 +467,7 @@ fun LibraryScreen(
             filtered = filtered.filter { it.status == sf }
         }
 
-        when (sortOrder) {
-            SortOrder.TITLE_ASC -> filtered.sortedBy { it.title.lowercase() }
-            SortOrder.TITLE_DESC -> filtered.sortedByDescending { it.title.lowercase() }
-            // Используем updatedAt (epoch millis) как дату изменения.
-            SortOrder.DATE_MODIFIED_DESC -> filtered.sortedByDescending { it.updatedAt ?: 0L }
-            SortOrder.DATE_MODIFIED_ASC -> filtered.sortedBy { it.updatedAt ?: 0L }
-        }
+        sortWorks(filtered, sortOrder)
     }
 
     // Track scroll to hide/show header (only when not viewing work details and not in Profile).
@@ -562,8 +565,6 @@ fun LibraryScreen(
                 statusFilter = null
                 searchQuery = ""
                 selectedWork = null
-                detailSearchExpanded = false
-                detailSearchQuery = ""
                 expandedCoverWork = null
                 showAddWorkScreen = false
             }
@@ -585,68 +586,10 @@ fun LibraryScreen(
                 }
 
                 Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                    // Фон-обложка начинается с самого верха экрана (включая область с кнопками)
-                    if (selectedWork != null && !detailSearchExpanded) {
-                        val coverPath = selectedWork?.let { w ->
-                            sessionCoverByWorkId[w.id] ?: w.displayCoverPath()
-                        }
-                        if (!coverPath.isNullOrBlank()) {
-                            key(coverPath) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        // Высота: Spacer (40dp) + высота строки поиска (~56dp) + область обложки (343dp)
-                                        .height(439.dp)
-                                        .align(Alignment.TopStart)
-                                ) {
-                                    Image(
-                                        painter = rememberAsyncImagePainter(
-                                            ImageRequest.Builder(context)
-                                                .data(coverPath.toCoverImageData())
-                                                .build()
-                                        ),
-                                        contentDescription = null,
-                                        modifier = Modifier.matchParentSize(),
-                                        contentScale = ContentScale.Crop,
-                                        alignment = Alignment.TopCenter,
-                                        alpha = 0.35f
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .matchParentSize()
-                                            .background(
-                                                Brush.verticalGradient(
-                                                    colors = listOf(
-                                                        Color.Transparent,
-                                                        mainBackgroundColor
-                                                    )
-                                                )
-                                            )
-                                    )
-                                }
-                            }
-                        }
-                    }
-
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .then(
-                                if (selectedWork != null && !detailSearchExpanded) {
-                                    Modifier.background(
-                                        Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                mainBackgroundColor
-                                            ),
-                                            startY = 0f,
-                                            endY = with(density) { 439.dp.toPx() }
-                                        )
-                                    )
-                                } else {
-                                    Modifier.background(mainBackgroundColor)
-                                }
-                            )
+                            .background(mainBackgroundColor)
                     ) {
                         // Spacer to push search bar from top
                         Spacer(modifier = Modifier.height(if (useNavRail) 12.dp else 40.dp))
@@ -680,167 +623,67 @@ fun LibraryScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     val iconTextColor = IconTextColor()
-                                    val titleColorBetween = TitleColorBetween()
 
-                                    // Back button (only when viewing work details)
-                                    if (selectedWork != null) {
-                                        IconButton(onClick = { selectedWork = null }) {
-                                            Icon(
-                                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                                contentDescription = stringResource(R.string.cancel),
-                                                tint = titleColorBetween
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                    }
-
-                                    // Search bar (icon-only when viewing work details, full when not)
                                     SearchBar(
                                         modifier = Modifier.weight(1f),
                                         currentTheme = currentTheme,
-                                        iconOnly = selectedWork != null,
-                                        // ВАЖНО: в списковом режиме всегда прокидываем внешний state,
-                                        // иначе при сворачивании/разворачивании хедера (AnimatedVisibility)
-                                        // SearchBar пересоздаётся и внутренний internalQuery сбрасывается.
-                                        query = if (selectedWork != null) detailSearchQuery else searchQuery,
-                                        onSearchQueryChange = { q ->
-                                            if (selectedWork != null) detailSearchQuery =
-                                                q else searchQuery = q
-                                        },
-                                        expanded = if (selectedWork != null) detailSearchExpanded else null,
-                                        onExpandedChange = { detailSearchExpanded = it }
+                                        query = searchQuery,
+                                        onSearchQueryChange = { q -> searchQuery = q }
                                     )
 
                                     Spacer(modifier = Modifier.width(12.dp))
 
-                                    // Hide other icons when detail-search expanded (search should take full width)
-                                    if (!(selectedWork != null && detailSearchExpanded)) {
-                                        SunIcon(
-                                            onClick = {
-                                                onThemeChange(if (currentTheme == AppTheme.DARK) AppTheme.LIGHT else AppTheme.DARK)
-                                            },
-                                            color = iconTextColor,
-                                            iconSize = 20.dp
-                                        )
+                                    SunIcon(
+                                        onClick = {
+                                            onThemeChange(if (currentTheme == AppTheme.DARK) AppTheme.LIGHT else AppTheme.DARK)
+                                        },
+                                        color = iconTextColor,
+                                        iconSize = 20.dp
+                                    )
 
-                                        Spacer(modifier = Modifier.width(12.dp))
+                                    Spacer(modifier = Modifier.width(12.dp))
 
-                                        if (selectedWork != null) {
-                                            IconButton(
-                                                onClick = {
-                                                    editingWork = selectedWork
-                                                    selectedWork = null
-                                                    showAddWorkScreen = true
-                                                }
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Edit,
-                                                    contentDescription = stringResource(R.string.edit_work),
-                                                    tint = if (currentTheme == AppTheme.DARK) Color.White else Color.Black
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            IconButton(
-                                                onClick = { workToDelete = selectedWork }
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Delete,
-                                                    contentDescription = stringResource(R.string.delete_work),
-                                                    // same color as edit icon
-                                                    tint = if (currentTheme == AppTheme.DARK) Color.White else Color.Black
-                                                )
-                                            }
-                                        } else {
-                                            IconButton(
-                                                onClick = {
-                                                    editingWork = null // <-- ДОБАВИТЬ
-                                                    showAddWorkScreen = true
-                                                }
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Add,
-                                                    contentDescription = stringResource(R.string.add_work),
-                                                    tint = if (currentTheme == AppTheme.DARK) iconTextColor.copy(
-                                                        alpha = 0.9f
-                                                    ) else Color.Black
-                                                )
-                                            }
+                                    IconButton(
+                                        onClick = {
+                                            editingWork = null
+                                            showAddWorkScreen = true
                                         }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = stringResource(R.string.add_work),
+                                            tint = if (currentTheme == AppTheme.DARK) iconTextColor.copy(
+                                                alpha = 0.9f
+                                            ) else Color.Black
+                                        )
                                     }
                                 }
 
-                                // Status filter chips (under search bar)
-                                if (selectedWork == null && selectedItem != NavigationItem.Profile) {
+                                // Status filter chip & Sort order chip (under search bar)
+                                if (selectedItem != NavigationItem.Profile) {
                                     Spacer(modifier = Modifier.height(10.dp))
-
-                                    val statusItems = when (selectedItem) {
-                                        NavigationItem.Anime, NavigationItem.TVSeries -> listOf(
-                                            WorkStatus.IN_PLANS to stringResource(R.string.in_plans),
-                                            WorkStatus.WATCHING to stringResource(R.string.watching),
-                                            WorkStatus.WATCHED to stringResource(R.string.watched),
-                                            WorkStatus.ABANDONED to stringResource(R.string.abandoned)
-                                        )
-
-                                        NavigationItem.Books, NavigationItem.Manga -> listOf(
-                                            WorkStatus.IN_PLANS to stringResource(R.string.in_plans),
-                                            WorkStatus.READING to stringResource(R.string.reading),
-                                            WorkStatus.READ to stringResource(R.string.read),
-                                            WorkStatus.ABANDONED to stringResource(R.string.abandoned)
-                                        )
-
-                                        else -> emptyList()
-                                    }
 
                                     Box(
                                         modifier = Modifier.fillMaxWidth(),
                                         contentAlignment = Alignment.Center
                                     ) {
+                                        val tabColor = tabContentColor(currentTheme, dynamicColorsEnabled)
+                                        val tabBgColor = tabBackgroundColor(dynamicColorsEnabled)
+
                                         Row(
                                             modifier = Modifier
                                                 .horizontalScroll(rememberScrollState()),
                                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            statusItems.forEach { (st, label) ->
-                                                val isSelected = statusFilter == st
-                                                val stColor = when (st) {
-                                                    WorkStatus.IN_PLANS -> Color(0xFF8E6687)
-                                                    WorkStatus.ABANDONED -> Color(0xFFFF5F5A)
-                                                    WorkStatus.READING, WorkStatus.WATCHING -> Color(
-                                                        0xFF7179A4
-                                                    )
+                                            StatusFilterChip(
+                                                selectedItem = selectedItem,
+                                                statusFilter = statusFilter,
+                                                onStatusFilterChange = { statusFilter = it },
+                                                tabColor = tabColor,
+                                                tabBackgroundColor = tabBgColor
+                                            )
 
-                                                    WorkStatus.READ, WorkStatus.WATCHED -> Color(
-                                                        0xFF79C77C
-                                                    )
-                                                }
-
-                                                AssistChip(
-                                                    onClick = {
-                                                        statusFilter = if (isSelected) null else st
-                                                    },
-                                                    label = {
-                                                        Text(
-                                                            text = label,
-                                                            color = stColor,
-                                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                                                        )
-                                                    },
-                                                    colors = AssistChipDefaults.assistChipColors(
-                                                        containerColor = Color.Transparent,
-                                                        labelColor = stColor,
-                                                        disabledContainerColor = Color.Transparent,
-                                                        disabledLabelColor = stColor
-                                                    ),
-                                                    border = AssistChipDefaults.assistChipBorder(
-                                                        borderColor = stColor,
-                                                        borderWidth = 2.dp,
-                                                        enabled = true
-                                                    )
-                                                )
-                                            }
-
-                                            // Чип сортировки сразу после статуса «Заброшено»
                                             SortOrderChip(
                                                 sortOrder = sortOrder,
                                                 onSortOrderChange = { newOrder ->
@@ -852,7 +695,7 @@ fun LibraryScreen(
                                                         )
                                                     }
                                                 },
-                                                iconTextColor = iconTextColor
+                                                tabColor = tabColor
                                             )
                                         }
                                     }
@@ -1059,122 +902,108 @@ fun LibraryScreen(
                                         }
 
                                         else -> {
-                                            // Список показываем только когда детальный экран не открыт
-                                            if (selectedWork == null) {
-                                                val currentTabType = when (targetTab) {
-                                                    NavigationItem.Books -> WorkType.BOOK
-                                                    NavigationItem.Anime -> WorkType.ANIME
-                                                    NavigationItem.Manga -> WorkType.MANGA
-                                                    NavigationItem.TVSeries -> WorkType.SERIES
-                                                    else -> null
+                                            val currentTabType = when (targetTab) {
+                                                NavigationItem.Books -> WorkType.BOOK
+                                                NavigationItem.Anime -> WorkType.ANIME
+                                                NavigationItem.Manga -> WorkType.MANGA
+                                                NavigationItem.TVSeries -> WorkType.SERIES
+                                                else -> null
+                                            }
+                                            val tabWorks = remember(
+                                                works,
+                                                currentTabType,
+                                                statusFilter,
+                                                searchQuery,
+                                                sortOrder
+                                            ) {
+                                                val list =
+                                                    if (currentTabType == null) emptyList() else works.filter { it.type == currentTabType }
+                                                val filtered = list.filter { work ->
+                                                    val matchesStatus =
+                                                        statusFilter == null || work.status == statusFilter
+                                                    val matchesQuery = searchQuery.isBlank() ||
+                                                            work.title.contains(
+                                                                searchQuery,
+                                                                ignoreCase = true
+                                                            ) ||
+                                                            work.otherTitle?.contains(
+                                                                searchQuery,
+                                                                ignoreCase = true
+                                                            ) == true
+                                                    matchesStatus && matchesQuery
                                                 }
-                                                val tabWorks = remember(
-                                                    works,
-                                                    currentTabType,
-                                                    statusFilter,
-                                                    searchQuery,
-                                                    sortOrder
-                                                ) {
-                                                    val list =
-                                                        if (currentTabType == null) emptyList() else works.filter { it.type == currentTabType }
-                                                    list.filter { work ->
-                                                        val matchesStatus =
-                                                            statusFilter == null || work.status == statusFilter
-                                                        val matchesQuery = searchQuery.isBlank() ||
-                                                                work.title.contains(
-                                                                    searchQuery,
-                                                                    ignoreCase = true
-                                                                ) ||
-                                                                work.otherTitle?.contains(
-                                                                    searchQuery,
-                                                                    ignoreCase = true
-                                                                ) == true
-                                                        matchesStatus && matchesQuery
-                                                    }.let { filtered ->
-                                                        when (sortOrder) {
-                                                            SortOrder.TITLE_ASC -> filtered.sortedBy { it.title.lowercase() }
-                                                            SortOrder.TITLE_DESC -> filtered.sortedByDescending { it.title.lowercase() }
-                                                            SortOrder.DATE_MODIFIED_DESC -> filtered.sortedByDescending {
-                                                                it.updatedAt ?: 0L
-                                                            }
-
-                                                            SortOrder.DATE_MODIFIED_ASC -> filtered.sortedBy {
-                                                                it.updatedAt ?: 0L
-                                                            }
+                                                sortWorks(filtered, sortOrder)
+                                            }
+                                            if (isGridView) {
+                                                key(targetTab) {
+                                                    LazyVerticalGrid(
+                                                        state = gridState,
+                                                        columns = GridCells.Adaptive(minSize = 160.dp),
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        userScrollEnabled = !showAddWorkScreen,
+                                                        contentPadding = PaddingValues(
+                                                            start = 8.dp,
+                                                            end = 8.dp,
+                                                            top = 2.dp,
+                                                            bottom = bottomBarClearance
+                                                        ),
+                                                        verticalArrangement = Arrangement.spacedBy(
+                                                            4.dp
+                                                        ),
+                                                        horizontalArrangement = Arrangement.spacedBy(
+                                                            4.dp
+                                                        )
+                                                    ) {
+                                                        items(
+                                                            tabWorks,
+                                                            key = { it.id }) { work ->
+                                                            WorkItemGridCard(
+                                                                workItem = work.toWorkItem(
+                                                                    statusLabel = workStatusLabel(work.status),
+                                                                    imageUrlOverride = sessionCoverByWorkId[work.id]
+                                                                ),
+                                                                dynamicColorsEnabled = dynamicColorsEnabled,
+                                                                onClick = {
+                                                                    selectedWork = work
+                                                                }
+                                                            )
                                                         }
                                                     }
                                                 }
-                                                if (isGridView) {
-                                                    key(targetTab) {
-                                                        LazyVerticalGrid(
-                                                            state = gridState,
-                                                            columns = GridCells.Adaptive(minSize = 160.dp),
-                                                            modifier = Modifier.fillMaxSize(),
+                                            } else {
+                                                key(targetTab) {
+                                                    Box(
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        contentAlignment = Alignment.TopCenter
+                                                    ) {
+                                                        LazyColumn(
+                                                            state = listState,
+                                                            modifier = Modifier
+                                                                .fillMaxSize()
+                                                                .widthIn(max = 720.dp),
                                                             userScrollEnabled = !showAddWorkScreen,
                                                             contentPadding = PaddingValues(
-                                                                start = 8.dp,
-                                                                end = 8.dp,
-                                                                top = 2.dp,
+                                                                start = 16.dp,
+                                                                end = 16.dp,
+                                                                top = 8.dp,
                                                                 bottom = bottomBarClearance
                                                             ),
                                                             verticalArrangement = Arrangement.spacedBy(
-                                                                4.dp
-                                                            ),
-                                                            horizontalArrangement = Arrangement.spacedBy(
-                                                                4.dp
+                                                                8.dp
                                                             )
                                                         ) {
                                                             items(
                                                                 tabWorks,
                                                                 key = { it.id }) { work ->
-                                                                WorkItemGridCard(
+                                                                WorkItemCard(
                                                                     workItem = work.toWorkItem(
                                                                         statusLabel = workStatusLabel(work.status),
                                                                         imageUrlOverride = sessionCoverByWorkId[work.id]
                                                                     ),
-                                                                    dynamicColorsEnabled = dynamicColorsEnabled,
                                                                     onClick = {
                                                                         selectedWork = work
-                                                                    }
+                                                                    },
                                                                 )
-                                                            }
-                                                        }
-                                                    }
-                                                } else {
-                                                    key(targetTab) {
-                                                        Box(
-                                                            modifier = Modifier.fillMaxSize(),
-                                                            contentAlignment = Alignment.TopCenter
-                                                        ) {
-                                                            LazyColumn(
-                                                                state = listState,
-                                                                modifier = Modifier
-                                                                    .fillMaxSize()
-                                                                    .widthIn(max = 720.dp),
-                                                                userScrollEnabled = !showAddWorkScreen,
-                                                                contentPadding = PaddingValues(
-                                                                    start = 16.dp,
-                                                                    end = 16.dp,
-                                                                    top = 8.dp,
-                                                                    bottom = bottomBarClearance
-                                                                ),
-                                                                verticalArrangement = Arrangement.spacedBy(
-                                                                    8.dp
-                                                                )
-                                                            ) {
-                                                                items(
-                                                                    tabWorks,
-                                                                    key = { it.id }) { work ->
-                                                                    WorkItemCard(
-                                                                        workItem = work.toWorkItem(
-                                                                            statusLabel = workStatusLabel(work.status),
-                                                                            imageUrlOverride = sessionCoverByWorkId[work.id]
-                                                                        ),
-                                                                        onClick = {
-                                                                            selectedWork = work
-                                                                        },
-                                                                    )
-                                                                }
                                                             }
                                                         }
                                                     }
@@ -1183,136 +1012,77 @@ fun LibraryScreen(
                                         }
                                     }
                                 }
+                            }
+                        }
+                    }
 
-                                // Work Detail Screen (поверх списка, но внутри контентного Box, чтобы фон-обложка был виден)
-                                selectedWork?.let { work ->
-                                        if (detailSearchExpanded) {
-                                            val filtered = works
-                                                .filter {
-                                                    if (detailSearchQuery.isBlank()) true
-                                                    else it.title.contains(
-                                                        detailSearchQuery,
-                                                        ignoreCase = true
-                                                    ) ||
-                                                            it.otherTitle?.contains(
-                                                                detailSearchQuery,
-                                                                ignoreCase = true
-                                                            ) == true
-                                                }
-                                                .sortedBy { it.title.lowercase() }
-
-                                            LazyColumn(
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentPadding = PaddingValues(
-                                                    horizontal = 16.dp,
-                                                    vertical = 8.dp
-                                                ),
-                                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    // Work Detail Screen (полноэкранный слой поверх главного контейнера с меню вкладки)
+                    selectedWork?.let { work ->
+                        key(work.id) {
+                            WorkDetailScreen(
+                                work = work,
+                                allWorks = works,
+                                onSelectWork = { nextWork ->
+                                    selectedWork = nextWork
+                                },
+                                coverPaths = work.allCoverPaths(),
+                                sessionCoverPath = sessionCoverByWorkId[work.id],
+                                onSessionCoverPathChange = { path ->
+                                    sessionCoverByWorkId =
+                                        sessionCoverByWorkId + (work.id to path)
+                                    coverPrefs.edit {
+                                        putString(
+                                            "last_cover_${work.id}",
+                                            path
+                                        )
+                                    }
+                                },
+                                onBack = { selectedWork = null },
+                                onEdit = {
+                                    editingWork = work
+                                    selectedWork = null
+                                    showAddWorkScreen = true
+                                },
+                                onDelete = { workToDelete = work },
+                                onSave = { updatedWork ->
+                                    requestSaveWork(
+                                        updatedWork,
+                                        selectedWork
+                                    ) { saved ->
+                                        selectedWork = saved
+                                        sessionCoverByWorkId[updatedWork.id]?.let { current ->
+                                            if (updatedWork.allCoverPaths()
+                                                    .none { it == current }
                                             ) {
-                                                items(filtered, key = { it.id }) { item ->
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .clickable {
-                                                                selectedWork = item
-                                                                detailSearchExpanded = false
-                                                                detailSearchQuery = ""
-                                                            }
-                                                            .padding(vertical = 8.dp),
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Image(
-                                                            painter = rememberAsyncImagePainter(
-                                                                (sessionCoverByWorkId[item.id]
-                                                                    ?: item.displayCoverPath())?.toCoverImageData()
-                                                            ),
-                                                            contentDescription = null,
-                                                            modifier = Modifier
-                                                                .size(54.dp)
-                                                                .clip(RoundedCornerShape(8.dp)),
-                                                            contentScale = ContentScale.Crop
+                                                val next =
+                                                    pickRandomCoverAvoidingLast(
+                                                        updatedWork.allCoverPaths(),
+                                                        coverPrefs.getString(
+                                                            "last_cover_${updatedWork.id}",
+                                                            null
                                                         )
-                                                        Spacer(modifier = Modifier.width(12.dp))
-                                                        Column(modifier = Modifier.weight(1f)) {
-                                                            Text(
-                                                                text = item.title,
-                                                                color = titleColorBetween,
-                                                                fontWeight = FontWeight.SemiBold
-                                                            )
-                                                            Text(
-                                                                text = when (item.type) {
-                                                                    WorkType.BOOK -> stringResource(R.string.books)
-                                                                    WorkType.MANGA -> stringResource(R.string.manga)
-                                                                    WorkType.ANIME -> stringResource(R.string.anime)
-                                                                    WorkType.SERIES -> stringResource(R.string.tv_series)
-                                                                },
-                                                                color = iconTextColor.copy(alpha = 0.7f)
-                                                            )
-                                                        }
+                                                    )
+                                                if (next != null) {
+                                                    sessionCoverByWorkId =
+                                                        sessionCoverByWorkId + (updatedWork.id to next)
+                                                    coverPrefs.edit {
+                                                        putString(
+                                                            "last_cover_${updatedWork.id}",
+                                                            next
+                                                        )
                                                     }
                                                 }
                                             }
-                                        } else {
-                                            WorkDetailScreen(
-                                                work = work,
-                                                coverPaths = work.allCoverPaths(),
-                                                sessionCoverPath = sessionCoverByWorkId[work.id],
-                                                onSessionCoverPathChange = { path ->
-                                                    sessionCoverByWorkId =
-                                                        sessionCoverByWorkId + (work.id to path)
-                                                    coverPrefs.edit {
-                                                        putString(
-                                                            "last_cover_${work.id}",
-                                                            path
-                                                        )
-                                                    }
-                                                },
-                                                onBack = { selectedWork = null },
-                                                onEdit = {
-                                                    editingWork = work
-                                                    selectedWork = null
-                                                    showAddWorkScreen = true
-                                                },
-                                                onDelete = { workToDelete = work },
-                                                onSave = { updatedWork ->
-                                                    requestSaveWork(
-                                                        updatedWork,
-                                                        selectedWork
-                                                    ) { saved ->
-                                                        selectedWork = saved
-                                                        sessionCoverByWorkId[updatedWork.id]?.let { current ->
-                                                            if (updatedWork.allCoverPaths()
-                                                                    .none { it == current }
-                                                            ) {
-                                                                val next =
-                                                                    pickRandomCoverAvoidingLast(
-                                                                        updatedWork.allCoverPaths(),
-                                                                        coverPrefs.getString(
-                                                                            "last_cover_${updatedWork.id}",
-                                                                            null
-                                                                        )
-                                                                    )
-                                                                if (next != null) {
-                                                                    sessionCoverByWorkId =
-                                                                        sessionCoverByWorkId + (updatedWork.id to next)
-                                                                    coverPrefs.edit {
-                                                                        putString(
-                                                                            "last_cover_${updatedWork.id}",
-                                                                            next
-                                                                        )
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                },
-                                                onCoverClick = { expandedCoverWork = work },
-                                                currentTheme = currentTheme,
-                                                onScrollStateChange = null
-                                            )
                                         }
-                                }
-                            }
+                                    }
+                                },
+                                onCoverClick = { expandedCoverWork = work },
+                                currentTheme = currentTheme,
+                                onThemeToggle = {
+                                    onThemeChange(if (currentTheme == AppTheme.DARK) AppTheme.LIGHT else AppTheme.DARK)
+                                },
+                                onScrollStateChange = null
+                            )
                         }
                     }
 
@@ -1419,35 +1189,6 @@ fun LibraryScreen(
                         }
                     }
 
-                    if (showStaleUpdateConfirm && pendingWorkSave != null) {
-                        val pending = pendingWorkSave!!
-                        StaleUpdateConfirmDialog(
-                            onConfirm = {
-                                pendingWorkSave = null
-                                showStaleUpdateConfirm = false
-                                proceedAfterStaleCheck(
-                                    pending.work,
-                                    pending.previous,
-                                    pending.onAfterSave,
-                                    staleRecordActivity = true
-                                )
-                            },
-                            onDecline = {
-                                pendingWorkSave = null
-                                showStaleUpdateConfirm = false
-                                proceedAfterStaleCheck(
-                                    pending.work,
-                                    pending.previous,
-                                    pending.onAfterSave,
-                                    staleRecordActivity = false
-                                )
-                            },
-                            onDismiss = {
-                                pendingWorkSave = null
-                                showStaleUpdateConfirm = false
-                            }
-                        )
-                    }
 
                     if (showActivityStatsConfirm && pendingWorkSave != null) {
                         val pending = pendingWorkSave!!

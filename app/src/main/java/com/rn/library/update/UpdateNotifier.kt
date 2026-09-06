@@ -5,15 +5,14 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.edit
-import com.rn.library.MainActivity
 import com.rn.library.R
 
 object UpdateNotifier {
     const val CHANNEL_ID = "app_updates"
-    const val EXTRA_OPEN_UPDATE = "open_update"
     private const val PREFS = "app_prefs"
     private const val KEY_LAST_NOTIFIED_TAG = "last_notified_release_tag"
     private const val NOTIFICATION_ID = 2101
@@ -35,9 +34,11 @@ object UpdateNotifier {
         val lastTag = prefs.getString(KEY_LAST_NOTIFIED_TAG, null)
         if (lastTag == result.release.tag) return
         ensureChannel(context)
-        val launch = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(EXTRA_OPEN_UPDATE, true)
+        val targetUrl = result.release.htmlUrl.ifBlank {
+            "https://github.com/${GitHubUpdateChecker.OWNER}/${GitHubUpdateChecker.REPO}/releases/latest"
+        }
+        val launch = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
         val pending = PendingIntent.getActivity(
             context,
